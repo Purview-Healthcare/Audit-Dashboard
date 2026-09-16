@@ -232,6 +232,21 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   .fn-key i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;}
   .fn-key b{color:var(--text);font-family:var(--mono);}
   .fn-sub{color:var(--text-faint);font-size:10px;}
+  tr.nc-breakdown{display:none;}
+
+  /* On paper the fifteen columns leave 17mm each, so the seven check columns
+     move to a second line under each biller and the headline figures stay on
+     the first. Screen is untouched. */
+  @media print{
+    .nc-table .nc-check{display:none;}
+    .nc-breakdown{display:table-row !important;}
+    .nc-breakdown td{font-size:8px;color:#333;background:#F7F9FB;
+      padding:2px 8px 5px 8px;border-top:none;}
+    .nc-breakdown b{color:#13304D;}
+    .nc-table td,.nc-table th{font-size:8.5px;padding:3px 4px;}
+    .nc-table .rs-in{border:none;background:transparent;padding:0;font-size:8px;}
+  }
+  .nc-breakdown{display:none;}
   .fb-tiles{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
   .fb-tile{flex:1;min-width:140px;border:1px solid var(--border);border-left:4px solid var(--border);
     border-radius:0 8px 8px 0;padding:10px 13px;background:var(--panel-2);}
@@ -353,6 +368,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     border-bottom:1px dashed var(--border);padding-bottom:4px;}
   .mc-row:last-child{border-bottom:none;}
   .mc-row b{color:var(--navy);font-family:var(--mono);}
+
+  @media print{
+    /* Fifteen columns will not fit A4 landscape. In print the seven check
+       columns move to a second line under each biller, so nothing is lost and
+       nothing is unreadable. */
+    .nc-table thead th.nc-detail, .nc-table tbody td.nc-detail{display:none;}
+    .nc-breakdown{display:table-row !important;}
+    .nc-breakdown td{font-size:8.5px;color:#333;background:#F7F9FB;
+      padding:2px 8px 5px 8px;border-top:none;}
+    .nc-breakdown b{color:#111;}
+    .nc-table .rs-in, .nc-table input{border:none;padding:0;background:transparent;}
+  }
+  .nc-breakdown{display:none;}
   .ua-in{min-width:210px;}
   .rs-in{background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:3px 6px;
     font-size:11px;color:var(--navy);font-family:inherit;max-width:135px;}
@@ -580,6 +608,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     .rindex-grid{gap:0 16px;}
     .rindex-item{break-inside:avoid;-webkit-column-break-inside:avoid;padding:3px 0;}
     .ri-title{font-size:9px;} .ri-sub{font-size:7.5px;} .ri-num,.ri-count{font-size:7.5px;}
+
+    /* Note Check prints as two rows per biller. Fifteen columns across A4 gives
+       each about 17mm, which wraps every heading and breaks names mid-word. The
+       headline figures stay on the biller's row; the seven-way breakdown moves
+       to a line beneath, where it has room to be read. */
+    .nc-table thead th.nc-detail, .nc-table tbody td.nc-detail{display:none;}
+    .nc-table tbody tr.nc-breakdown{display:table-row;}
+    .nc-table tbody tr.nc-breakdown td{
+      background:#F7F9FB; font-size:8px; color:#41586D;
+      padding:2px 6px 5px 10px; border-top:0; }
+    .nc-table tbody tr.nc-breakdown b{color:#13304D;}
+    .nc-table .nc-tl{display:block; font-size:7.5px; color:#6B8399;}
+    .nc-table td, .nc-table th{font-size:8.5px;}
     .card.needs-data{background:#F7F9FB;} .nd-body,.nd-cols{font-size:8.5px;}
     .fb-tiles{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
   .fb-tile{flex:1;min-width:140px;border:1px solid var(--border);border-left:4px solid var(--border);
@@ -625,7 +666,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
     <div class="masthead">
       <h1 class="mast-title">Audit Dashboard</h1>
-      <div class="mast-org">Purview Healthcare &nbsp;&middot;&nbsp; <span class="mast-build">v7.4 &middot; 09 Sep 2026</span></div>
+      <div class="mast-org">Purview Healthcare &nbsp;&middot;&nbsp; <span class="mast-build">v7.8 &middot; 09 Sep 2026</span></div>
       <div class="mast-rule"></div>
       <h2 id="pageTitle">Dashboard</h2>
       <div class="sub" id="pageSub">Select a date range, then download the dashboard as PDF</div>
@@ -773,7 +814,7 @@ let REBUTTALS = {};
 // a short note against anyone who went unaudited, so the gap can be explained
 let UNAUDITED_NOTES = {};
 var K_PREFIX='qa_';
-var K = { ui:K_PREFIX+'pqd_ui', qa:K_PREFIX+'pqd_qa', prod:K_PREFIX+'pqd_prod', proddet:K_PREFIX+'pqd_proddet', rca:K_PREFIX+'pqd_rca', params:K_PREFIX+'pqd_params', roster:K_PREFIX+'pqd_roster', up:K_PREFIX+'pqd_uploads', proddet:K_PREFIX+'pqd_proddet', sharedSeen:K_PREFIX+'pqd_sharedseen', sharedUrl:K_PREFIX+'pqd_sharedurl', rosterup:K_PREFIX+'pqd_rosterup', rampup:K_PREFIX+'pqd_rampup', rosteredits:K_PREFIX+'pqd_rosteredits', thresholds:K_PREFIX+'pqd_thresholds', cmpnotes:K_PREFIX+'pqd_cmpnotes', printskip:K_PREFIX+'pqd_printskip', presets:K_PREFIX+'pqd_presets', base:K_PREFIX+'pqd_base', prodhdr:K_PREFIX+'pqd_prodhdr', uanotes:K_PREFIX+'pqd_uanotes', rebut:K_PREFIX+'pqd_rebut', targets:K_PREFIX+'pqd_targets' };
+var K = { ui:K_PREFIX+'pqd_ui', qa:K_PREFIX+'pqd_qa', prod:K_PREFIX+'pqd_prod', proddet:K_PREFIX+'pqd_proddet', rca:K_PREFIX+'pqd_rca', params:K_PREFIX+'pqd_params', roster:K_PREFIX+'pqd_roster', up:K_PREFIX+'pqd_uploads', proddet:K_PREFIX+'pqd_proddet', sharedSeen:K_PREFIX+'pqd_sharedseen', sharedUrl:K_PREFIX+'pqd_sharedurl', rosterup:K_PREFIX+'pqd_rosterup', rampup:K_PREFIX+'pqd_rampup', rosteredits:K_PREFIX+'pqd_rosteredits', thresholds:K_PREFIX+'pqd_thresholds', cmpnotes:K_PREFIX+'pqd_cmpnotes', printskip:K_PREFIX+'pqd_printskip', presets:K_PREFIX+'pqd_presets', base:K_PREFIX+'pqd_base', prodhdr:K_PREFIX+'pqd_prodhdr', uanotes:K_PREFIX+'pqd_uanotes', prodroster:K_PREFIX+'pqd_prodroster', qaroster:K_PREFIX+'pqd_qaroster', rebut:K_PREFIX+'pqd_rebut', targets:K_PREFIX+'pqd_targets' };
 
 /* ============================ HELPERS ============================ */
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -1133,6 +1174,54 @@ function parseAudit(rows){
 }
 
 /* ---- Validation -> roster ---- */
+// Three files can describe the same person: the production workbook's own
+// Validation tab, the QA tracker's Validation tab, and the uploaded Team Roster.
+// The roster is the master; the other two are compared against it and any
+// disagreement is shown wherever people are listed, rather than one source
+// quietly winning.
+let PROD_ROSTER = [];   // from the production workbook's Validation tab
+let QA_ROSTER   = [];   // from the QA tracker's Validation tab
+function rosterDiscrepancies(){
+  const norm=v=>String(v||'').replace(/\u00a0/g,' ').trim();
+  const eq=(a,b)=>norm(a).toLowerCase()===norm(b).toLowerCase();
+  const master=new Map(ROSTER.map(r=>[r.nameKey,r]));
+  const out=[];
+  const seen=new Set();
+  [['Production sheet', PROD_ROSTER], ['QA tracker', QA_ROSTER]].forEach(([src,list])=>{
+    list.forEach(r=>{
+      seen.add(r.nameKey);
+      const m=master.get(r.nameKey);
+      if(!ROSTER.length) return;                   // nothing to compare against yet
+      if(!m){ out.push({name:r.name, key:r.nameKey, src, field:'not on the team roster',
+                        theirs:norm(r.status)||'—', master:'—'}); return; }
+      if(norm(r.status) && !eq(r.status, m.status))
+        out.push({name:r.name, key:r.nameKey, src, field:'Status', theirs:norm(r.status), master:norm(m.status)||'—'});
+      if(norm(r.supervisor) && !eq(r.supervisor, m.supervisor))
+        out.push({name:r.name, key:r.nameKey, src, field:'Team Lead', theirs:norm(r.supervisor), master:norm(m.supervisor)||'—'});
+    });
+  });
+  // on the roster but in neither of the other two
+  if(ROSTER.length && (PROD_ROSTER.length || QA_ROSTER.length)){
+    ROSTER.forEach(m=>{
+      if(!seen.has(m.nameKey))
+        out.push({name:m.name, key:m.nameKey, src:'Team roster only', field:'not in the production or QA file',
+                  theirs:'—', master:norm(m.status)||'—'});
+    });
+  }
+  return out;
+}
+function rosterMismatchBanner(){
+  const d=rosterDiscrepancies();
+  if(!d.length) return '';
+  const people=[...new Set(d.map(x=>x.name))];
+  return `<div class="data-note" style="border-left:2px solid var(--bad);">
+    <b>Details are not matching across the three files.</b> ${d.length} disagreement(s) covering
+    ${people.length} person(s) between the team roster, the production sheet's Validation tab and the QA tracker's
+    Validation tab. The team roster is used; the others are only compared against it.
+    <span style="color:var(--text-faint);">${people.slice(0,6).map(esc).join(', ')}${people.length>6? ` +${people.length-6} more`:''}
+    — the full list is in <b>Team Status</b>.</span></div>`;
+}
+
 function parseRoster(rows){
   const out=[];
   for(const r of rows){
@@ -1389,6 +1478,8 @@ async function loadAll(){
   PRODDET = await sget(K.proddet, []);
   PROD_HEADERS = await sget(K.prodhdr, []);
   UNAUDITED_NOTES = await sget(K.uanotes, {});
+  PROD_ROSTER = await sget(K.prodroster, []);
+  QA_ROSTER = await sget(K.qaroster, []);
   REBUTTALS = await sget(K.rebut, {});
   if(!TARGETS.byName) TARGETS.byName = {};
   if(!TARGETS.byProject)  TARGETS.byProject  = {};
@@ -1437,8 +1528,10 @@ async function handleQA(file){
       const aName = find('audit data') || find('audit') || names[0];
       auditRows = sheetToRows(res.wb, aName);
       const pName = find('error parameter'); if(pName) paramRows = sheetToRows(res.wb, pName, 0);
-      // the Validation tab is deliberately not read — the roster comes from its
-      // own upload, so there is only ever one source to check
+      // the QA tracker's own people list, kept for comparison against the roster
+      const vName = find('validation');
+      QA_ROSTER = vName ? parseRoster(sheetToRows(res.wb, vName, 0)) : [];
+      await sset(K.qaroster, QA_ROSTER);
     } else { auditRows = res.rows; }
 
     if(paramRows.length){ PARAMS = parseParams(paramRows); await sset(K.params, PARAMS); }
@@ -1474,8 +1567,12 @@ async function handleProd(file){
     let rows=[];
     if(res.type==='xlsx'){
       const names=res.wb.SheetNames;
-      const pick2 = names.find(n=>/production|conso|prod/i.test(n)) || names[0];
+      const pick2 = names.find(n=>/production|conso|prod|audit data/i.test(n)) || names[0];
       rows = sheetToRows(res.wb, pick2);
+      // the people list that came with the production file, kept for comparison
+      const vTab = names.find(n=>/validation/i.test(n));
+      PROD_ROSTER = vTab ? parseRoster(sheetToRows(res.wb, vTab, 0)) : [];
+      await sset(K.prodroster, PROD_ROSTER);
     } else { rows = res.rows; }
     const {rows:prodRows, detail:prodDetail, detected} = parseProduction(rows);
     if(!prodRows.length){
@@ -1790,8 +1887,22 @@ function buildDateWeekMap(){
 }
 function weekOfDate(dk){
   if(!dk) return null;
-  if(DATE2WEEK.has(dk)) return weekLabel(DATE2WEEK.get(dk));
-  return null;
+  if(DATE2WEEK.has(dk)){
+    const lbl = weekLabel(DATE2WEEK.get(dk));
+    // a blank week cell in the QA sheet must not swallow the date — fall
+    // through and work the week out from the date itself
+    if(lbl) return lbl;
+  }
+  // The QA sheet's week column only covers dates it audited. Production days it
+  // never saw used to fall into one nameless bucket, so the week is worked out
+  // from the date itself — Monday to Sunday.
+  const m=String(dk).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return null;
+  const d=new Date(+m[1], +m[2]-1, +m[3]);
+  if(isNaN(d)) return null;
+  const day=(d.getDay()+6)%7;                 // Monday = 0
+  d.setDate(d.getDate()-day);
+  return 'Week of '+fmtD(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
 }
 function inScope(r){
   return (CLIENT==='__all__'   || r.project===CLIENT) &&
@@ -1841,12 +1952,19 @@ function scopeQA(){ return QA.filter(r=> inScope(r) && inRange(auditKey(r))); }
 // ALL production inside the selected date range. This is the denominator for
 // sampling: audits ÷ everything produced, not just production on audited days —
 // using audited days only silently inflated sampling and understated production.
+// Production rows never carried a week, so the weekly trend put every day in
+// one nameless bucket. The week is worked out from the date the claim was
+// worked, the same Monday-to-Sunday rule the QA side uses.
+function withWeek(p){
+  if(p && p.dateKey && !p.week) p.week = weekOfDate(p.dateKey) || '';
+  return p;
+}
 function scopeProd(){
-  return PROD.filter(p=>
+  return PROD.map(withWeek).filter(p=>
     (CLIENT==='__all__' || !p.project || p.project===CLIENT) &&
     (ASSOC==='__all__'  || p.nameKey===ASSOC) &&
     (TEAMLEAD==='__all__' || teamLeadOf(p.nameKey)===TEAMLEAD) &&
-    inProdRange(p.dateKey));
+    inProdRange(p.dateKey)).map(withWeek);
 }
 
 /* ============================ AGGREGATION ============================ */
@@ -3061,7 +3179,7 @@ function watchlistHTML(){
   return `<div class="card"><h3>Outlier Watchlist</h3>
     <div class="card-sub">Outlier = below ${OUTLIER_THRESHOLD}% for ${OUTLIER_CONSEC_WEEKS}+ consecutive weeks · "At risk" is one week away</div>
     <div class="table-scroll"><table class="data">
-      <thead><tr><th>Associate</th><th>Team Lead</th><th>Roster Status</th><th>Latest Week</th>
+      <thead><tr><th>Associate</th><th class="nc-detail">Team Lead</th><th>Roster Status</th><th>Latest Week</th>
         <th class="num">Latest Score</th><th class="num">Consecutive Weeks Below</th>
         <th>Weeks Below</th><th>Action</th></tr></thead>
       <tbody>${list.map(x=>`<tr class="${x.oi.isOutlier?'is-outlier':''}">
@@ -4719,7 +4837,7 @@ function reworkAgentHTML(rows){
 
     <div class="section-sub-title">By associate</div>
     <div class="table-scroll"><table class="data">
-      <thead><tr><th>Associate</th><th>Team Lead</th><th class="num">Errors</th>
+      <thead><tr><th>Associate</th><th class="nc-detail">Team Lead</th><th class="num">Errors</th>
         <th class="num">Rework Needed</th><th class="num">Complete</th><th class="num">Pending</th>
         <th class="num">Closure %</th><th class="num">Oldest Open</th><th>Flag</th></tr></thead>
       <tbody>${list.map(b=>`<tr class="${b.open>=5?'is-outlier':''}">
@@ -5094,7 +5212,7 @@ document.addEventListener('change', async e=>{
 // and/or a comment column. Duplicate touches are wasted capacity; repeated
 // comment text usually means notes are being pasted rather than written.
 function scopePDetail(){
-  return PRODDET.filter(r=>
+  return PRODDET.map(withWeek).filter(r=>
     (CLIENT==='__all__'   || !r.project || r.project===CLIENT) &&
     (ASSOC==='__all__'    || r.nameKey===ASSOC) &&
     (TEAMLEAD==='__all__' || teamLeadOf(r.nameKey)===TEAMLEAD) &&
@@ -5407,7 +5525,7 @@ function callTimeHTML(){
 
     <div class="section-sub-title">By biller — click a name for the mode split</div>
     <div class="table-scroll"><table class="data">
-      <thead><tr><th>Biller / Mode</th><th>Team Lead</th><th class="num">Claims</th>
+      <thead><tr><th>Biller / Mode</th><th class="nc-detail">Team Lead</th><th class="num">Claims</th>
         <th class="num">Calls</th><th class="num">Non-Call</th><th class="num">% by Call</th>
         <th class="num">Talk Time</th><th class="num">AHT</th><th class="num">Calls / Talk Hr</th>
         <th class="num">Talk Hrs / Day</th><th class="num">Longest</th><th class="num">QA Score</th><th>Read</th></tr></thead>
@@ -5599,7 +5717,7 @@ function prodDashboardHTML(){
       <div class="card"><h3>Outliers — Below ${PROD_MIN_ATTAIN}% for 2+ Consecutive Weeks</h3>
         <div class="card-sub">One weak week is noise; a run is a pattern — the same rule the Agent Quality report uses for QA scores</div>
         <div class="table-scroll"><table class="data">
-          <thead><tr><th>Biller</th><th>Team Lead</th><th class="num">Consecutive Weeks</th>
+          <thead><tr><th>Biller</th><th class="nc-detail">Team Lead</th><th class="num">Consecutive Weeks</th>
             <th class="num">Latest</th><th>Weeks Below</th><th>Action</th></tr></thead>
           <tbody>${outliers.map(o=>`<tr class="is-outlier">
             <td><b>${esc(o.name)}</b></td>
@@ -6210,7 +6328,7 @@ function fieldVariants(det, field){
 }
 
 /* ==================== AGING x ACTION ==================== */
-// What the biller did, read from the note. Level one of the taxonomy.
+// Used only for AR workflow matching, which reads the note by design.
 // Kept only for the AR workflow matching, which reads the note by design.
 function claimActionFromNote(t){
   const H=p=>new RegExp(p,'i').test(t||'');
@@ -6309,7 +6427,7 @@ function arReviewRows(det){
     }).map(q=>q.t.replace(/[.,;:]+$/,'').trim());
     const chg=CHANGE_SOURCES.filter(c=>new RegExp(c.find,'i').test(t) && !new RegExp(c.src,'i').test(t))
       .map(c=>c.what);
-    out.push({r, preBill, scen:w, miss, chg});
+    out.push({r, preBill, scen:w, miss, chg, saagFrom:pick.from, why:'matched'});
   });
   return out;
 }
@@ -6450,7 +6568,7 @@ function auditCompareHTML(){
         <td><button type="button" class="csv-btn" data-cpcsv="__all__">&#8595; all ${rows.length} claim(s)</button></td></tr></tfoot>
     </table></div>
 
-    ${rows.some(r=>r.firm.some(f=>f.k==='repClaim'))? derivedActionNote('The “no change in action” test') : ''}
+    
     ${held? `<div class="data-note" style="border-left:2px solid var(--bad);">
       <b>${held} further finding(s) from AR Review are not shown here.</b> They rest on identifying the denial from free
       text, and only ${fmtPct(pct(coded,notes))} of notes carry a denial code — ${manyHit} match more than one workflow,
@@ -6532,6 +6650,55 @@ function exportAuditCompare(which){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
   toast(`${rows.length} claim(s) · ${lines.length-1} row(s) exported.`);
 }
+// The workflow to audit a claim against is chosen from the sheet's own Status
+// and Sub Status, never guessed from the note. Where those columns are empty no
+// workflow runs at all and only the documentation checks report — a workflow
+// picked from free text is not a basis for telling a biller they missed a step.
+function workflowFromSAAG(r){
+  const g = saagOf(r);
+  const text = [g.sub, g.status].filter(Boolean).join(' ');
+  if(!text) return {rule:null, from:'', reason:'no-saag'};
+  const norm = v => String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const t = norm(text);
+  if(!t) return {rule:null, from:text, reason:'no-saag'};
+  // exact name first, then the workflow's own detector pattern
+  let hit = AR_WORKFLOWS.rules.find(x => norm(x.n) === t);
+  if(!hit) hit = AR_WORKFLOWS.rules.find(x => t.includes(norm(x.n)) || norm(x.n).includes(t));
+  if(!hit) hit = AR_WORKFLOWS.rules.find(x => { try { return new RegExp(x.d,'i').test(text); } catch(e){ return false; } });
+  if(!hit){
+    // "DX/PX Inconsistent with CPT" and "DX Inconsistent with CPT" are the same
+    // denial typed differently, so the best word overlap wins when it is clear.
+    const STOP=new Set(['the','a','of','for','with','and','or','to','in','on','by','is','not','no','claim']);
+    const toks=v=>new Set(String(v||'').toLowerCase().split(/[^a-z0-9]+/).filter(x=>x.length>2 && !STOP.has(x)));
+    const tt=toks(text);
+    if(tt.size){
+      let best=null, bestScore=0;
+      AR_WORKFLOWS.rules.forEach(x=>{
+        const wt=toks(x.n); if(!wt.size) return;
+        let shared=0; wt.forEach(v=>{ if(tt.has(v)) shared++; });
+        const score=shared/wt.size;
+        if(score>bestScore){ bestScore=score; best=x; }
+      });
+      if(bestScore>=0.65) hit=best;
+    }
+  }
+  return hit ? {rule:hit, from:text, reason:'matched'}
+             : {rule:null, from:text, reason:'unmatched'};
+}
+function saagWorkflowSummary(){
+  const det = scopePDetail();
+  let noSaag=0, matched=0, unmatched=0;
+  const unmatchedVals = new Map();
+  det.forEach(r=>{
+    const w = workflowFromSAAG(r);
+    if(w.reason==='no-saag') noSaag++;
+    else if(w.reason==='matched') matched++;
+    else { unmatched++; unmatchedVals.set(w.from, (unmatchedVals.get(w.from)||0)+1); }
+  });
+  return {rows:det.length, noSaag, matched, unmatched,
+          unmatchedVals:[...unmatchedVals.entries()].sort((a,b)=>b[1]-a[1])};
+}
+
 function arReviewHTML(){
   const det=scopePDetail().filter(r=>r.note);
   if(!det.length) return '';
@@ -6568,6 +6735,21 @@ function arReviewHTML(){
         <span class="ar-ok">The structural findings &mdash; no claim number, no call reference, identical notes, a DOS that
         contradicts the row &mdash; do not depend on the denial and can be acted on directly.</span>`;
     })()}</div>
+    ${(()=>{ const w=saagWorkflowSummary();
+      if(w.noSaag===w.rows) return `<div class="data-note" style="border-left:2px solid var(--bad);">
+        <b>No data available in Status and Sub Status, so no workflow audit has run.</b> The workflow a claim is measured
+        against is taken from those columns &mdash; it is never guessed from the note. What follows is the
+        <b>documentation check only</b>: whether the note records a claim number, a call reference, a source for any
+        change. Fill Status and Sub Status in the production export and each claim will be audited against its own
+        workflow, with the requirement list that belongs to it.</div>`;
+      return `<div class="data-note"${w.unmatched? ' style="border-left:2px solid var(--warn);"':''}>
+        <b>Audited against the workflow named in Status and Sub Status.</b> ${w.matched} claim(s) matched a workflow
+        ${w.unmatched? `&middot; <b>${w.unmatched} could not be matched</b>` : ''}
+        ${w.noSaag? `&middot; ${w.noSaag} row(s) have neither column filled and were left to the documentation check only` : ''}.
+        ${w.unmatched? `<div style="margin-top:5px;color:var(--text-faint);">Not recognised:
+          ${w.unmatchedVals.slice(0,6).map(([v,n])=>`<b>${esc(v)}</b> &times;${n}`).join(' &middot; ')}
+          ${w.unmatchedVals.length>6? ` +${w.unmatchedVals.length-6} more`:''} — these need the wording aligned to a
+          workflow name, or a mapping.</div>`:''}</div>`; })()}
     <div class="card-sub">Claims identified by the <b>Unique ID</b> column &middot; denial notes checked against the Purview AR workflows &middot;
       ${AR_WORKFLOWS.rules.length} scenarios, ${AR_WORKFLOWS.rules.filter(r=>r.r.length).length} with a requirement list &middot;
       click a scenario for the claims</div>
@@ -6784,39 +6966,6 @@ function saagColumnsPresent(){
   return want.filter(([label,aliases]) =>
     aliases.some(a=>keys.includes(a))).map(x=>x[0]);
 }
-function derivedActionNote(what){
-  const det = scopePDetail().filter(r=>r.note && r.note.trim());
-  const have = saagColumnsPresent();
-  const missing = ['Status','Sub Status','Action','Bucket / Responsibility'].filter(c=>!have.includes(c));
-  if(!missing.length){
-    // the sheet carries them, but this report is still reading the note
-    return `<div class="data-note" style="border-left:2px solid var(--warn);">
-      <b>Your sheet already carries Status, Sub Status, Action and Bucket / Responsibility</b> — but this section still
-      works the action out by reading the note, so the two may disagree. Reading those columns directly is a change worth
-      making; until then treat this as inferred rather than as your own data.</div>`;
-  }
-  let none=0, many=0;
-  det.forEach(r=>{
-    const h = (typeof AR_WORKFLOWS!=='undefined')
-      ? AR_WORKFLOWS.rules.filter(x=>new RegExp(x.d,'i').test(r.note)) : [];
-    if(!h.length) none++; else if(h.length>1) many++;
-  });
-  const cols = missing.map(c=>`<b>${c}</b>`).join(', ');
-  return `<div class="data-note" style="border-left:2px solid var(--bad);">
-    <b>${what} here ${/and/.test(what)?'are':'is'} worked out by reading the note, not taken from your sheet.</b>
-    The production file carries no ${cols} column${missing.length>1?'s':''}, and the notes follow no fixed format — so what
-    you see below is inferred from free text and will not always be right.${det.length? `
-    <span style="color:var(--text-faint);">${none} of ${det.length} notes match no known pattern; ${many} match more than one.</span>`:''}<br>
-    <b>Either of two things would fix it.</b> Export the ${missing.length===3?'SAAG':'missing'} column${missing.length>1?'s':''}
-    with the production sheet and ${missing.length>1?'they':'it'} would be read directly. Or standardise the note — denial
-    code, action and next owner in fixed fields — and the reading becomes reliable.
-    <span style="color:var(--text-faint);">Until then, treat this as a guide to where to look, not as a count you would quote.</span>
-  </div>`;
-}
-
-// The action and sub-status come from the sheet, never from the note. If the
-// SAAG columns are absent or empty the report says so instead of guessing —
-// a guess read off free text is not something to put beside a biller's name.
 function saagField(r, names){
   const raw = r && r._raw;
   if(!raw) return '';
@@ -6891,10 +7040,9 @@ function claimCategoriesHTML(){
   return `<div class="card"><h3>Claim Categories</h3>
     <div class="card-sub">Action first, reason beneath &middot; ${N} claim(s) &middot; every claim in exactly one action &middot;
       click an action to open its reasons</div>
-    ${derivedActionNote('The action and sub-status')}
     <div class="insight-box"><div class="ib-row"><span class="ib-dot"></span><span>
       <b>Action</b> is what the biller did, or who the claim now sits with. <b>Sub-status</b> is the reason behind it,
-      read from the note. The same reason lands under different actions depending on whether the biller
+      taken from the sheet's <b>Sub Status</b> column. The same reason lands under different actions depending on whether the biller
       <b>had the details to act</b> — a policy shown as inactive is corrected when the right package was found, and sent
       to the practice when it was not.
     </span></div></div>
@@ -6923,7 +7071,8 @@ function claimCategoriesHTML(){
         <td><button type="button" class="csv-btn" data-cccsv="|">&#8595; all ${N} claim(s)</button></td></tr></tfoot>
     </table></div>
     ${byA.has('Action not identified')? `<div class="data-note">
-      <b>Action not identified</b> means the action could not be read from the note &mdash; not that no work was done.
+      <b>(no action in the sheet)</b> means the <b>Action</b> and <b>Status</b> columns were both empty on that row &mdash;
+      not that no work was done. Nothing is inferred from the note.
       Routing wording differs by client, so it is left unread rather than guessed at.</div>`:''}
   </div>`;
 }
@@ -6998,7 +7147,6 @@ function agingActionHTML(){
         <td class="num">${rows.filter(r=>r._action==='Corrected & resubmitted').length}</td>
         <td class="num">${median}d</td></tr></tfoot>
     </table></div>
-    ${derivedActionNote('The action shown against each age')}
     ${noDate? `<div class="data-note">${noDate} claim(s) are missing a date of service or a date worked and are left out of these figures.</div>`:''}
     <div class="insight-box"><div class="ib-title">Reading this</div>
       ${over120? `<div class="ib-row"><span class="ib-dot"></span><span>
@@ -7010,7 +7158,7 @@ function agingActionHTML(){
         their own bucket rather than counted as 0&ndash;30, because they point at a date entry problem rather than new work.
       </span></div>`:''}
       <div class="ib-row"><span class="ib-dot"></span><span>
-        The action is read from the note. Where the wording is client-specific it is left as
+        The action is taken from the sheet's <b>Action</b> column, or <b>Status</b> where Action is empty. Where the wording is client-specific it is left as
         <b>Action not identified</b> rather than guessed at — that does not mean no work was done.
       </span></div>
     </div></div>`;
@@ -7254,8 +7402,6 @@ function touchCountHTML(){
           <td>${tracked} + ${untracked} = ${det.length}</td></tr>
       </tfoot>
     </table></div>
-
-    ${derivedActionNote('Whether the action changed between touches')}
     <div class="data-note"><b>Three different things, kept apart.</b>
       A claim whose <b>action changed</b> moved on and is not waste.
       A claim the <b>same biller came back to</b> may be a deliberate follow-up — ${chase} of these were 7 or more days
@@ -7352,26 +7498,26 @@ function claimsByUserHTML(){
     <div class="card-sub">Whether each note describes the claim it is attached to · ${det.length} claim(s) ·
       click a name for the claims, or take the CSV for all of them</div>
 
-    <div class="table-scroll"><table class="data">
-      <thead><tr><th>Biller</th><th>Team Lead</th><th class="num">Claims</th>
-        <th class="num">Repeat Claim #</th><th class="num">Exact Copy</th>
-        <th class="num">Repeat Call Ref</th><th class="num">DOS Mismatch</th>
-        <th class="num">No Claim #</th><th class="num">No Call Ref</th><th class="num">Spelling</th>
+    <div class="table-scroll"><table class="data nc-table">
+      <thead><tr><th>Biller</th><th class="nc-detail">Team Lead</th><th class="num">Claims</th>
+        <th class="num nc-detail">Repeat Claim #</th><th class="num nc-detail">Exact Copy</th>
+        <th class="num nc-detail">Repeat Call Ref</th><th class="num nc-detail">DOS Mismatch</th>
+        <th class="num nc-detail">No Claim #</th><th class="num nc-detail">No Call Ref</th><th class="num nc-detail">Spelling</th>
         <th class="num">Errors</th><th class="num">Rebuttals</th><th class="num">Net Errors</th>
         <th>Rebuttal Comment</th><th class="num">Impacted Claims</th><th>Download</th></tr></thead>
       <tbody>${list.map((x,i)=>{
         const bad = x.exact || x.repClaim || x.dosBad;
         const head=`<tr class="row-parent nc-toggle ${bad?'is-outlier':''}" data-nc="${i}" style="cursor:pointer;">
-          <td><span class="aud-caret" data-nccaret="${i}">&#9656;</span> <b>${esc(x.name)}</b></td>
-          <td>${esc(x.tl)||'—'}</td>
-          <td class="num">${x.claims}</td>
-          <td class="num">${x.repClaim?`<span class="tag outlier">${x.repClaim}</span>`:'0'}</td>
-          <td class="num">${x.exact?`<span class="tag outlier">${x.exact}</span>`:'0'}</td>
-          <td class="num">${x.repRef?`<span class="tag major">${x.repRef}</span>`:'0'}</td>
-          <td class="num">${x.dosBad?`<span class="tag fatal">${x.dosBad}</span>`:'0'}</td>
-          <td class="num">${x.noClaim?`<span class="tag major">${x.noClaim}</span>`:'0'}</td>
-          <td class="num">${x.callNoRef?`<span class="tag major">${x.callNoRef}</span>`:'0'}</td>
-          <td class="num">${x.spell?`<span class="tag nonfatal">${x.spell}</span>`:'0'}</td>
+          <td><span class="aud-caret" data-nccaret="${i}">&#9656;</span> <b>${esc(x.name)}</b><span class="nc-tl">${esc(x.tl)||'—'}</span></td>
+          <td class="nc-detail">${esc(x.tl)||'—'}</td>
+          <td class="num nc-claims">${x.claims}</td>
+          <td class="num nc-detail">${x.repClaim?`<span class="tag outlier">${x.repClaim}</span>`:'0'}</td>
+          <td class="num nc-detail">${x.exact?`<span class="tag outlier">${x.exact}</span>`:'0'}</td>
+          <td class="num nc-detail">${x.repRef?`<span class="tag major">${x.repRef}</span>`:'0'}</td>
+          <td class="num nc-detail">${x.dosBad?`<span class="tag fatal">${x.dosBad}</span>`:'0'}</td>
+          <td class="num nc-detail">${x.noClaim?`<span class="tag major">${x.noClaim}</span>`:'0'}</td>
+          <td class="num nc-detail">${x.callNoRef?`<span class="tag major">${x.callNoRef}</span>`:'0'}</td>
+          <td class="num nc-detail">${x.spell?`<span class="tag nonfatal">${x.spell}</span>`:'0'}</td>
           <td class="num">${x.flagged?`<span class="tag outlier">${x.flagged}</span>`:'<span style="color:var(--good);font-weight:700;">0</span>'}</td>
           <td class="num"><input class="rs-in rb-n" type="number" min="0" step="1" placeholder="0"
                data-rbn="${esc(x.nameKey)}" value="${(REBUTTALS[x.nameKey]||{}).n ?? ''}" /></td>
@@ -7382,7 +7528,12 @@ function claimsByUserHTML(){
           <td>${(x.flagged+x.noClaim+x.callNoRef+x.spell)
             ? `<button type="button" class="csv-btn" data-csv="${esc(x.nameKey)}">&#8595; ${x.withFind} claim(s)</button>`
             : '<span class="na-cell">nothing flagged</span>'}</td>
-        </tr>`;
+        </tr>
+        <tr class="nc-breakdown"><td colspan="16"><span style="color:#6B8399;">breakdown </span>
+          Repeat claim# <b>${x.repClaim}</b> &middot; Exact copy <b>${x.exact}</b> &middot;
+          Repeat call ref <b>${x.repRef}</b> &middot; DOS mismatch <b>${x.dosBad}</b> &middot;
+          No claim# <b>${x.noClaim}</b> &middot; No call ref <b>${x.callNoRef}</b> &middot;
+          Spelling <b>${x.spell}</b></td></tr>`;
         const shown=x.rows.slice(0,CAP);
         const kids=`<tr class="row-child nc-row" data-nc="${i}" style="display:none;"><td colspan="9" style="padding:0;">
           <div class="sub-wrap">
@@ -7400,7 +7551,13 @@ function claimsByUserHTML(){
             </tr>`).join('')}
             </tbody></table>
           </div></td></tr>`;
-        return head+kids;
+        // print only: the seven check columns move to a line under the biller
+        const breakdown=`<tr class="nc-breakdown"><td colspan="16">
+          Repeat claim# <b>${x.repClaim}</b> &middot; Exact copy <b>${x.exact}</b> &middot;
+          Repeat call ref <b>${x.repRef}</b> &middot; DOS mismatch <b>${x.dosBad}</b> &middot;
+          No claim# <b>${x.noClaim}</b> &middot; No call ref <b>${x.noRef}</b> &middot;
+          Spelling <b>${x.spell}</b>${x.tl?` &middot; team lead ${esc(x.tl)}`:''}</td></tr>`;
+        return head+breakdown+kids;
       }).join('')}</tbody>
       <tfoot><tr><td>TOTAL</td><td></td>
         <td class="num">${det.length}</td>
@@ -8385,6 +8542,22 @@ function teamStatusHTML(){
       </table></div>
     </div>
 
+    ${(()=>{ const d=rosterDiscrepancies(); if(!d.length) return '';
+      return `<div class="section-title">Details Not Matching</div>
+      <div class="card"><h3>Details Not Matching Across Files</h3>
+        <div class="card-sub">The team roster is the master &middot; ${d.length} disagreement(s) with the production
+          sheet&rsquo;s Validation tab or the QA tracker&rsquo;s Validation tab</div>
+        <div class="table-scroll"><table class="data">
+          <thead><tr><th>Person</th><th>Other file</th><th>Field</th><th>That file says</th><th>Team roster says</th></tr></thead>
+          <tbody>${d.slice(0,40).map(x=>`<tr class="is-outlier">
+            <td><b>${esc(x.name)}</b></td><td>${esc(x.src)}</td><td>${esc(x.field)}</td>
+            <td><span class="tag major">${esc(x.theirs)}</span></td>
+            <td><span class="tag clear">${esc(x.master)}</span></td></tr>`).join('')}</tbody>
+          ${d.length>40? `<tfoot><tr><td colspan="5" style="font-style:italic;color:var(--text-faint);">showing 40 of ${d.length}</td></tr></tfoot>`:''}
+        </table></div>
+        <div class="data-note">Nothing is changed automatically &mdash; the team roster is used throughout and these
+          rows show where the other files disagree, so they can be corrected at source.</div></div>`; })()}
+
     <div class="section-title">Roster Checks</div>
     <div class="card"><h3>Problems in the roster itself</h3>
       <div class="card-sub">These distort every other report, so they are worth fixing at source</div>
@@ -8972,7 +9145,7 @@ function effortQualityHTML(){
       ${tile(fmtPct(avgScore(scopeQA())), 'avg QA score','')}
     </div>
     <div class="table-scroll"><table class="data">
-      <thead><tr><th>Associate</th><th>Team Lead</th><th class="num">Claims</th>
+      <thead><tr><th>Associate</th><th class="nc-detail">Team Lead</th><th class="num">Claims</th>
         <th class="num">Calls</th><th class="num">Non-Call</th><th class="num">% by Call</th>
         <th class="num">AHT</th><th class="num">QA Score</th><th class="num">Errors</th><th>Read</th></tr></thead>
       <tbody>${rows.map(x=>{
@@ -9065,6 +9238,7 @@ function insightsDashboardHTML(){
       ${kpi('Short on Both', both.length, both.length?'bad':'good', 'quality and volume')}
     </div>
 
+    ${rosterMismatchBanner()}
     <div class="section-title">Where Everyone Sits</div>
     <div class="card"><h3>Quality Against Volume</h3>
       <div class="card-sub">Every associate placed by both marks — QA score against the ${OUTLIER_THRESHOLD}% threshold, attainment against the ${PROD_MIN_ATTAIN}% minimum</div>
@@ -9135,7 +9309,7 @@ function insightsDashboardHTML(){
     <div class="card"><h3>Every Associate, Both Marks</h3>
       <div class="card-sub">Sorted worst-first · a suggestion is given per person, drawn from both sheets</div>
       <div class="table-scroll"><table class="data">
-        <thead><tr><th>Associate</th><th>Team Lead</th><th>Status</th><th class="num">Claims</th>
+        <thead><tr><th>Associate</th><th class="nc-detail">Team Lead</th><th>Status</th><th class="num">Claims</th>
           <th class="num">Attainment</th><th class="num">Audits</th><th class="num">QA Score</th>
           <th class="num">Errors</th><th class="num">Repeats</th><th class="num">Rework Open</th>
           <th>Verdict</th></tr></thead>
@@ -9174,6 +9348,7 @@ function insightsDashboardHTML(){
        : touchCountHTML() || needsCard('Touch Count','no production sheet is loaded.',
         'Counts how often the same claim came back, and which claims two billers both worked. It reads the production rows, not the audits.<div class="nd-cols">Upload a <b>Production Sheet</b> and this fills in.</div>')}
 
+    ${rosterMismatchBanner()}
     <div class="section-title">Note Check by Biller</div>
     ${claimsByUserHTML() || needsCard('Note Check by Biller','no production sheet is loaded.',
         'Checks whether each note describes the claim it is attached to — repeated claim numbers, pasted notes, missing call references and date-of-service mismatches.<div class="nd-cols">Upload a <b>Production Sheet</b> with a comment column and this fills in.</div>')}
@@ -9231,7 +9406,7 @@ function insightsDashboardHTML(){
         }).join('');
         return `${bulkHTML}
           ${rowsHTML? `<div class="table-scroll"><table class="data">
-            <thead><tr><th class="num">#</th><th>Associate</th><th>Team Lead</th><th>Issue</th>
+            <thead><tr><th class="num">#</th><th>Associate</th><th class="nc-detail">Team Lead</th><th>Issue</th>
               <th class="num">QA</th><th class="num">Attainment</th><th class="num">Claims</th>
               <th>What to do</th></tr></thead>
             <tbody>${rowsHTML}</tbody></table></div>` : ''}`;
@@ -9279,7 +9454,7 @@ function qaDashboardHTML(){
       text:`Audits land ${a.avgLag} days after the work is done on average (longest ${a.maxLag} days). Feedback that late rarely changes behaviour — tighten the turnaround.`});
   });
 
-  const rcaBlock = rcaHTML(rows);
+  const rcaBlock = '';   // RCA now lives in Agent Quality
 
   return `
     <div class="banner ${flags.length?'na':'good'}"><div>
@@ -9553,12 +9728,19 @@ function dashboardHTML(){
     ${SAMPLING_IN_AGENT ? `<div class="section-title">Sampling Coverage</div>
     ${samplingComplianceHTML(rows)}` : ''}
 
+    <div class="section-title">Root Cause</div>
+    ${rcaHTML(rows)}
+
     <div class="section-title">Project &amp; Practice Quality</div>
     ${scoreCardsHTML(rows)}
     ${projectPracticeTableHTML(rows)}
 
+    ${rosterMismatchBanner()}
     <div class="section-title">Biller-wise Quality</div>
     ${billerTableHTML()}
+
+    <div class="section-title">RCA &amp; Mitigation Plan</div>
+    ${rcaHTML(rows)}
 
     <div class="section-title">Outlier Watchlist</div>
     ${watchlistHTML()}
