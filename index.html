@@ -353,6 +353,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     border-bottom:1px dashed var(--border);padding-bottom:4px;}
   .mc-row:last-child{border-bottom:none;}
   .mc-row b{color:var(--navy);font-family:var(--mono);}
+  .ua-in{min-width:210px;}
   .rs-in{background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:3px 6px;
     font-size:11px;color:var(--navy);font-family:inherit;max-width:135px;}
   .rs-in.wide{width:100%;max-width:none;}
@@ -624,7 +625,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
     <div class="masthead">
       <h1 class="mast-title">Audit Dashboard</h1>
-      <div class="mast-org">Purview Healthcare &nbsp;&middot;&nbsp; <span class="mast-build">v5.6 &middot; 09 Sep 2026</span></div>
+      <div class="mast-org">Purview Healthcare &nbsp;&middot;&nbsp; <span class="mast-build">v7.4 &middot; 09 Sep 2026</span></div>
       <div class="mast-rule"></div>
       <h2 id="pageTitle">Dashboard</h2>
       <div class="sub" id="pageSub">Select a date range, then download the dashboard as PDF</div>
@@ -677,7 +678,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       </label>
       <label class="upload-zone" id="rosterZone">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-        <span><span class="u-title">Team Roster <span class="u-opt">optional</span></span><br/><span class="u-sub" id="rosterSub">Validation tab &mdash; or its own file</span></span>
+        <span><span class="u-title">Team Roster <span class="u-opt">optional</span></span><br/><span class="u-sub" id="rosterSub">Status, supervisor and dates come from here</span></span>
         <span class="u-badge" id="rosterCount">none</span>
         <input type="file" id="rosterInput" accept=".csv,.xlsx,.xlsm" />
       </label>
@@ -700,12 +701,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     <div id="loadNote" style="font-size:11.5px;color:#5A7089;margin:-6px 0 14px;"></div>
 
     <div class="period-bar" id="periodBar" style="display:none;">
-      <span class="plabel">Audit Date From</span>
-      <input type="date" id="dateFrom" title="Filters on the Audit Date column of the QA sheet" />
-      <span class="plabel">To</span>
-      <input type="date" id="dateTo" title="Filters on the Audit Date column of the QA sheet" />
+      <span class="plabel">Audit Date</span>
+      <input type="date" id="dateFrom" title="Filters the QA sheet on its Audit Date column" />
+      <span class="plabel">to</span>
+      <input type="date" id="dateTo" title="Filters the QA sheet on its Audit Date column" />
+      <span class="plabel" id="prodDateLbl">Production Date</span>
+      <input type="date" id="prodFrom" title="Filters the production sheet on its Worked Date column" />
+      <span class="plabel" id="prodToLbl">to</span>
+      <input type="date" id="prodTo" title="Filters the production sheet on its Worked Date column" />
+      <label class="range-hint" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;">
+        <input type="checkbox" id="dateLink" checked style="margin:0;" /> Keep the two the same
+      </label>
       <button class="btn small" id="rangeAll">Full range</button>
-      <span class="range-hint">Range applies to <b>Audit Date</b></span>
       <span class="plabel">Project</span>
       <select id="clientSelect"><option value="__all__">All projects</option></select>
       <span class="plabel">Practice</span>
@@ -758,8 +765,15 @@ const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov',
 // edition is built with a shorter list. Uploading is never restricted — the
 // sampling figure needs the production sheet even when that report is hidden.
 var ALLOWED_REPORTS = ['agent'];
+// The QA edition shows only Agent Quality, so the sampling section is folded in
+// there. The full build leaves it in QA Performance, where it belongs.
+var SAMPLING_IN_AGENT = true;
+// { nameKey: {n: <rebuttals accepted>, c: '<comment>'} } — typed by a supervisor
+let REBUTTALS = {};
+// a short note against anyone who went unaudited, so the gap can be explained
+let UNAUDITED_NOTES = {};
 var K_PREFIX='qa_';
-var K = { ui:K_PREFIX+'pqd_ui', qa:K_PREFIX+'pqd_qa', prod:K_PREFIX+'pqd_prod', proddet:K_PREFIX+'pqd_proddet', rca:K_PREFIX+'pqd_rca', params:K_PREFIX+'pqd_params', roster:K_PREFIX+'pqd_roster', up:K_PREFIX+'pqd_uploads', proddet:K_PREFIX+'pqd_proddet', sharedSeen:K_PREFIX+'pqd_sharedseen', sharedUrl:K_PREFIX+'pqd_sharedurl', rosterup:K_PREFIX+'pqd_rosterup', rampup:K_PREFIX+'pqd_rampup', rosteredits:K_PREFIX+'pqd_rosteredits', thresholds:K_PREFIX+'pqd_thresholds', cmpnotes:K_PREFIX+'pqd_cmpnotes', printskip:K_PREFIX+'pqd_printskip', presets:K_PREFIX+'pqd_presets', base:K_PREFIX+'pqd_base', prodhdr:K_PREFIX+'pqd_prodhdr', targets:K_PREFIX+'pqd_targets' };
+var K = { ui:K_PREFIX+'pqd_ui', qa:K_PREFIX+'pqd_qa', prod:K_PREFIX+'pqd_prod', proddet:K_PREFIX+'pqd_proddet', rca:K_PREFIX+'pqd_rca', params:K_PREFIX+'pqd_params', roster:K_PREFIX+'pqd_roster', up:K_PREFIX+'pqd_uploads', proddet:K_PREFIX+'pqd_proddet', sharedSeen:K_PREFIX+'pqd_sharedseen', sharedUrl:K_PREFIX+'pqd_sharedurl', rosterup:K_PREFIX+'pqd_rosterup', rampup:K_PREFIX+'pqd_rampup', rosteredits:K_PREFIX+'pqd_rosteredits', thresholds:K_PREFIX+'pqd_thresholds', cmpnotes:K_PREFIX+'pqd_cmpnotes', printskip:K_PREFIX+'pqd_printskip', presets:K_PREFIX+'pqd_presets', base:K_PREFIX+'pqd_base', prodhdr:K_PREFIX+'pqd_prodhdr', uanotes:K_PREFIX+'pqd_uanotes', rebut:K_PREFIX+'pqd_rebut', targets:K_PREFIX+'pqd_targets' };
 
 /* ============================ HELPERS ============================ */
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -1204,6 +1218,10 @@ function rawCell(v){
   if(typeof v==='string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return v.slice(0,10);
   return v;
 }
+// The production sheet gets its own range. Until now one range labelled "Audit
+// Date" quietly cut both sheets, so narrowing to an audit week dropped
+// production rows with nothing on screen saying so.
+let PROD_FROM='', PROD_TO='', DATE_LINK=true;
 var PROD_HEADERS = [];      // the production sheet's own columns, in their own order
 function parseProduction(rows){
   PROD_HEADERS = rows.length ? Object.keys(rows[0]) : [];
@@ -1370,7 +1388,11 @@ async function loadAll(){
   BASE    = await sget(K.base, null);
   PRODDET = await sget(K.proddet, []);
   PROD_HEADERS = await sget(K.prodhdr, []);
+  UNAUDITED_NOTES = await sget(K.uanotes, {});
+  REBUTTALS = await sget(K.rebut, {});
   if(!TARGETS.byName) TARGETS.byName = {};
+  if(!TARGETS.byProject)  TARGETS.byProject  = {};
+  if(!TARGETS.byPractice) TARGETS.byPractice = {};
   RCA     = await sget(K.rca, {}) || {};
 }
 
@@ -1408,23 +1430,19 @@ function readFile(file, cb){
 }
 async function handleQA(file){
   readFile(file, async (res)=>{
-    let auditRows=[], paramRows=[], rosterRows=[];
+    let auditRows=[], paramRows=[];
     if(res.type==='xlsx'){
       const names = res.wb.SheetNames;
       const find = frag => names.find(n=>n.trim().toLowerCase().includes(frag));
       const aName = find('audit data') || find('audit') || names[0];
       auditRows = sheetToRows(res.wb, aName);
       const pName = find('error parameter'); if(pName) paramRows = sheetToRows(res.wb, pName, 0);
-      const vName = find('validation');      if(vName) rosterRows = sheetToRows(res.wb, vName, 0);
+      // the Validation tab is deliberately not read — the roster comes from its
+      // own upload, so there is only ever one source to check
     } else { auditRows = res.rows; }
 
     if(paramRows.length){ PARAMS = parseParams(paramRows); await sset(K.params, PARAMS); }
-    if(rosterRows.length){
-      const nr = ROSTER_UPLOADED ? [] : parseRoster(rosterRows);
-      const m = new Map(ROSTER.map(r=>[r.nameKey,r]));
-      nr.forEach(r=>m.set(r.nameKey,r));
-      ROSTER = [...m.values()]; await sset(K.roster, ROSTER);
-    }
+
     const parsed = parseAudit(auditRows);
     if(!parsed.length){
       const found = (auditRows.__header || Object.keys(auditRows[0]||{})).slice(0,8);
@@ -1801,6 +1819,23 @@ function inRange(dk){
   if(DATE_TO   && dk > DATE_TO)   return false;
   return true;
 }
+function inProdRange(dk){
+  const from = DATE_LINK ? DATE_FROM : PROD_FROM;
+  const to   = DATE_LINK ? DATE_TO   : PROD_TO;
+  if(!dk) return !(from || to);
+  if(from && dk < from) return false;
+  if(to   && dk > to)   return false;
+  return true;
+}
+function prodRangeLabel(){
+  const from = DATE_LINK ? DATE_FROM : PROD_FROM;
+  const to   = DATE_LINK ? DATE_TO   : PROD_TO;
+  if(!from && !to) return 'no date filter';
+  return `${from? fmtD(from):'start'} \u2013 ${to? fmtD(to):'end'}`;
+}
+function rangesDiffer(){
+  return !DATE_LINK && ((PROD_FROM||'')!==(DATE_FROM||'') || (PROD_TO||'')!==(DATE_TO||''));
+}
 function auditKey(r){ return r.auditDate || r.dateWorked || ''; }
 function scopeQA(){ return QA.filter(r=> inScope(r) && inRange(auditKey(r))); }
 // ALL production inside the selected date range. This is the denominator for
@@ -1811,7 +1846,7 @@ function scopeProd(){
     (CLIENT==='__all__' || !p.project || p.project===CLIENT) &&
     (ASSOC==='__all__'  || p.nameKey===ASSOC) &&
     (TEAMLEAD==='__all__' || teamLeadOf(p.nameKey)===TEAMLEAD) &&
-    inRange(p.dateKey));
+    inProdRange(p.dateKey));
 }
 
 /* ============================ AGGREGATION ============================ */
@@ -2057,10 +2092,43 @@ document.getElementById('pdfBtn').addEventListener('click', ()=>{
 ['dateFrom','dateTo'].forEach(id=>{
   document.getElementById(id).addEventListener('change', e=>{
     if(id==='dateFrom') DATE_FROM=e.target.value; else DATE_TO=e.target.value;
-    buildFilters(); render();
+    if(DATE_LINK){ PROD_FROM=DATE_FROM; PROD_TO=DATE_TO; }
+    syncDateInputs(); buildFilters(); render();
   });
 });
+['prodFrom','prodTo'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', e=>{
+    if(id==='prodFrom') PROD_FROM=e.target.value; else PROD_TO=e.target.value;
+    // touching the production range on its own means the two are no longer linked
+    if(DATE_LINK && (PROD_FROM!==DATE_FROM || PROD_TO!==DATE_TO)){
+      DATE_LINK=false;
+      const cb=document.getElementById('dateLink'); if(cb) cb.checked=false;
+    }
+    syncDateInputs(); buildFilters(); render();
+  });
+});
+document.getElementById('dateLink').addEventListener('change', e=>{
+  DATE_LINK = e.target.checked;
+  if(DATE_LINK){ PROD_FROM=DATE_FROM; PROD_TO=DATE_TO; }
+  syncDateInputs(); buildFilters(); render();
+});
+// the production boxes follow the audit ones while linked, and grey out so it
+// is obvious they are not independent
+function syncDateInputs(){
+  const pf=document.getElementById('prodFrom'), pt=document.getElementById('prodTo');
+  if(!pf||!pt) return;
+  if(DATE_LINK){ PROD_FROM=DATE_FROM; PROD_TO=DATE_TO; }
+  pf.value=PROD_FROM||''; pt.value=PROD_TO||'';
+  pf.disabled=false; pt.disabled=false;
+  pf.style.opacity = DATE_LINK? '.55' : '1';
+  pt.style.opacity = DATE_LINK? '.55' : '1';
+}
+// Full range clears every date, audit and production alike.
 document.getElementById('rangeAll').addEventListener('click', ()=>{
+  DATE_FROM=''; DATE_TO=''; PROD_FROM=''; PROD_TO='';
+  const df=document.getElementById('dateFrom'), dt=document.getElementById('dateTo');
+  if(df) df.value=''; if(dt) dt.value='';
+  syncDateInputs();
   buildTLMap();
   const tls=[...new Set([...QA.map(r=>r.teamLead), ...ROSTER.map(r=>r.supervisor)].filter(Boolean))].sort();
   const tlSel=document.getElementById('tlSelect');
@@ -2135,6 +2203,8 @@ function printHeaderHTML(){
     <div class="ph-brand">Audit Dashboard &nbsp;·&nbsp; Purview Healthcare</div>
     <div class="ph-range"><span class="ph-range-lbl">Audit Date Range</span>
       <span class="ph-range-val">${esc(ri.label)}</span>
+      <span class="ph-range-lbl" style="margin-left:14px;">Production Date Range</span>
+      <span class="ph-range-val">${esc(prodRangeLabel())}</span>
       ${ri.months?`<span class="ph-range-lbl" style="margin-left:14px;">Month</span>
       <span class="ph-range-val">${esc(ri.months)}</span>`:''}
       ${ri.weeks?`<span class="ph-range-lbl" style="margin-left:14px;">Weeks</span>
@@ -2530,6 +2600,7 @@ document.addEventListener('click', e=>{
 // One plain sentence per section, written for someone opening the report for the
 // first time. Falls back to the section's own card subtitle when not listed here.
 const SECTION_HELP = {
+  'Sampling Coverage':"Each associate's sampling against the band for their status, and what it would take to close the gap.",
   'Project & Practice Quality':"The same numbers split by client and by practice, so you can see whether a problem belongs to one area rather than the whole floor.",
   'Biller-wise Quality':"Every associate on one line \u2014 audits, score, error counts by severity, and how often the same error came back.",
   'Outlier Watchlist':"Anyone below the threshold for two or more weeks in a row. One weak week is noise; a run is a pattern worth acting on.",
@@ -2562,7 +2633,7 @@ const SECTION_HELP = {
   'Aging & Action':"Which age of claim was worked, and what happened to it at each age.",
   'Touch Count':"How often a claim came back inside this range, and which claims two billers both worked.",
   'Audit Comparison':"The auditor's verdict beside the checks that read structure \u2014 firm findings only.",
-  'Audit Comparison':"What the auditor found against the checks that read structure rather than meaning.",
+  'AR Review & Audit Comparison':"Denial notes against the Purview AR workflows, then the auditor's verdict beside the checks that read structure rather than meaning.",
   'AR Review':"Denial notes checked against the Purview AR workflows \u2014 what the workflow asks for, and whether the note records it.",
   'Note Check by Biller':"Whether each note describes the claim it is attached to \u2014 repeated claim numbers, pasted notes and date-of-service mismatches. Click a name for the claims, or take the CSV.",
   'Suggested Actions':"Named next steps drawn from both sheets, urgent first."
@@ -2622,7 +2693,8 @@ document.addEventListener('change', async e=>{
 /* ============================ FILTER PRESETS ============================ */
 let PRESETS = [];
 function currentFilterState(){
-  return {from:DATE_FROM, to:DATE_TO, client:CLIENT, practice:PRACTICE, tl:TEAMLEAD, assoc:ASSOC};
+  return {from:DATE_FROM, to:DATE_TO, pfrom:PROD_FROM, pto:PROD_TO, link:DATE_LINK,
+          client:CLIENT, practice:PRACTICE, tl:TEAMLEAD, assoc:ASSOC};
 }
 function presetLabel(p){
   const bits=[];
@@ -3760,12 +3832,12 @@ function agrees(v){
   return /(agree|match|concur|same|correct|upheld|valid|yes)/i.test(t);
 }
 function overturned(v){
-  return /(overturn|reversed|withdrawn|accept(ed)?\b|in favou?r of (the )?(biller|associate|agent)|invalid)/i.test(String(v||''));
+  return /(overturn|reversed|withdrawn|removed|dropped|waived|accept(ed)?\b|in favou?r of (the )?(biller|associate|agent)|invalid)/i.test(String(v||''));
 }
 function upheld(v){
   const t=String(v||'').trim();
   if(!t || overturned(t)) return false;
-  return /(uphold|upheld|reject|denied|qa correct|no change|valid|stands)/i.test(t);
+  return /(uphold|upheld|retain|sustain|reject|denied|qa correct|no change|valid|stands)/i.test(t);
 }
 
 // ---- 1. Repeat errors: same associate + same category flagged again in a later week ----
@@ -3806,7 +3878,8 @@ function unauditedHTML(rows){
     <div class="card-sub">People who produced work or sit on the roster but received <b>zero</b> audits in this range — the real coverage risk</div>
     ${missed.length
       ? `<div class="table-scroll"><table class="data">
-          <thead><tr><th>Associate</th><th class="num">Production in Range</th><th>Source</th><th>Risk</th></tr></thead>
+          <thead><tr><th>Associate</th><th class="num">Production in Range</th><th>Source</th><th>Risk</th>
+            <th>Comment</th></tr></thead>
           <tbody>${missed.map(m=>`<tr class="${m.prod>0?'is-outlier':''}">
             <td><b>${esc(m.name)}</b></td>
             <td class="num">${m.prod||'—'}</td>
@@ -3814,7 +3887,13 @@ function unauditedHTML(rows){
             <td>${m.prod>0
               ? '<span class="tag outlier">Worked but never sampled</span>'
               : '<span class="tag major">On roster, no production either</span>'}</td>
+            <td><input class="rs-in ua-in" type="text" data-ua="${esc(m.key)}"
+                 placeholder="why, or what was agreed"
+                 value="${esc((UNAUDITED_NOTES||{})[m.key]||'')}" /></td>
           </tr>`).join('')}</tbody></table></div>
+        <div class="data-note">The comment is kept in this app and never written back to your Excel. It prints with the
+          report, so a coverage gap can be explained rather than just listed — leave, a mid-month joiner, or an audit
+          already scheduled.</div>
         <div class="insight-box"><div class="ib-title">Action</div>
           <div class="ib-row"><span class="ib-dot"></span><span>
             <b>${missed.filter(m=>m.prod>0).length}</b> associate(s) produced work with no audit at all. Quality is unknown for them, not good — allocate audits before the next cycle closes.
@@ -3874,17 +3953,25 @@ function rebuttalHTML(rows){
   const g = groupBy(withData, r=>r.auditorName||'(unnamed)');
   const list=[];
   for(const [aud, rs] of g){
-    const raised = rs.filter(r=>yesish(r.rebuttal) || r.rebuttalOutcome).length;
+    const isRaised = r => yesish(r.rebuttal)
+      || overturned(r.rebuttalOutcome) || upheld(r.rebuttalOutcome);
+    const raised = rs.filter(isRaised).length;
     const over = rs.filter(r=>overturned(r.rebuttalOutcome)).length;
     const up = rs.filter(r=>upheld(r.rebuttalOutcome)).length;
+    const unclear = raised - over - up;
     list.push({aud, audits:rs.length, raised, over, up,
+      unclear,
       overturnRate: raised? pct(over, raised) : 0,
       accuracy: raised? pct(raised-over, raised) : 100});
   }
   list.sort((a,b)=>b.overturnRate-a.overturnRate);
-  const tot = list.reduce((a,x)=>({raised:a.raised+x.raised, over:a.over+x.over}), {raised:0,over:0});
+  const tot = list.reduce((a,x)=>({raised:a.raised+x.raised, over:a.over+x.over,
+    up:a.up+x.up, unclear:a.unclear+x.unclear}), {raised:0,over:0,up:0,unclear:0});
   return `<div class="card"><h3>Rebuttal &amp; Overturn Rate</h3>
     <div class="card-sub">Findings disputed by billers and how often the dispute succeeded · a high overturn rate means audits are being called wrong</div>
+    ${tot.unclear>0? `<div class="data-note">${tot.unclear} rebuttal(s) have an outcome this report could not read as either
+      overturned or upheld, so they are counted as raised but sit in neither column. Check the wording used in the
+      <b>Rebuttal Status</b> column.</div>`:''}
     <div class="table-scroll"><table class="data">
       <thead><tr><th>Auditor</th><th class="num">Audits</th><th class="num">Rebuttals</th>
         <th class="num">Overturned</th><th class="num">Upheld</th><th class="num">Overturn %</th>
@@ -3896,9 +3983,9 @@ function rebuttalHTML(rows){
         <td class="num"><span class="stamp ${scoreClass(x.accuracy)}">${fmtPct(x.accuracy)}</span></td>
       </tr>`).join('')}</tbody>
       <tfoot><tr><td>TOTAL</td><td class="num">${withData.length}</td><td class="num">${tot.raised}</td>
-        <td class="num">${tot.over}</td><td class="num">${tot.raised-tot.over}</td>
+        <td class="num">${tot.over}</td><td class="num">${tot.up}</td>
         <td class="num">${fmtPct(pct(tot.over, tot.raised||1))}</td>
-        <td class="num">${fmtPct(pct(tot.raised-tot.over, tot.raised||1))}</td></tr></tfoot>
+        <td class="num">${fmtPct(pct(tot.up, tot.raised||1))}</td></tr></tfoot>
     </table></div></div>`;
 }
 
@@ -4113,7 +4200,99 @@ function samplingComplianceHTML(rows){
   const under = list.filter(x=>x.verdict==='under').length;
   const over  = list.filter(x=>x.verdict==='over').length;
   const noStatus = list.filter(x=>!x.rule).length;
-  return `${samplingRulesTableHTML()}
+
+  // What it would actually take to bring everyone inside their band. Audits
+  // needed is rounded up, because half an audit does not exist.
+  const needList = list.filter(x=>x.verdict==='under' && x.rule && x.production>0)
+    .map(x=>({...x, need: Math.max(0, Math.ceil(x.production*x.rule.min/100) - x.audits)}))
+    .filter(x=>x.need>0).sort((a,b)=>b.need-a.need);
+  const spareList = list.filter(x=>x.verdict==='over' && x.rule && x.production>0)
+    .map(x=>({...x, spare: Math.max(0, x.audits - Math.floor(x.production*x.rule.max/100))}))
+    .filter(x=>x.spare>0).sort((a,b)=>b.spare-a.spare);
+  const needTotal  = needList.reduce((s2,x)=>s2+x.need,0);
+  const spareTotal = spareList.reduce((s2,x)=>s2+x.spare,0);
+  const auditors = [...new Set(rows.map(r=>r.auditorName).filter(Boolean))];
+  const days = [...new Set(rows.map(r=>r.auditDate).filter(Boolean))].length || 1;
+  const perAuditorPerDay = auditors.length ? (needTotal/auditors.length/days) : 0;
+
+  // Nothing can be planned when no associate appears in both sheets — almost
+  // always because the two spell names differently. Say so rather than showing
+  // a card of zeros.
+  const matched = list.filter(x=>x.production>0).length;
+  const planHTML = matched===0
+   ? `<div class="card needs-data"><h3>How to close the sampling gap</h3>
+      <div class="card-sub">Not available — no associate appears in both sheets.</div>
+      <div class="nd-body">Sampling is audits divided by that person's production, so both files must name the same
+        people. ${list.length} audited associate(s) and ${new Set(scopeProd().map(p2=>p2.nameKey)).size} in production,
+        none matching.
+        <div class="nd-cols">The QA sheet uses full names such as
+          <span class="mono">${esc((list[0]&&list[0].name)||'')}</span> while production uses
+          <span class="mono">${esc((scopeProd()[0]&&scopeProd()[0].name)||'')}</span>. Align them in one file and this
+          fills in.</div></div></div>`
+   : `<div class="card"><h3>How to close the sampling gap</h3>
+    <div class="card-sub">What it would take to bring every associate inside their band, from the audits you already do</div>
+    <div class="fb-tiles">
+      <div class="fb-tile ${needTotal?'bad':'good'}"><div class="ft-n">${needTotal}</div>
+        <div class="ft-l">extra audits needed</div></div>
+      <div class="fb-tile ${spareTotal?'warn':''}"><div class="ft-n">${spareTotal}</div>
+        <div class="ft-l">audits above the band elsewhere</div></div>
+      <div class="fb-tile ${needTotal>spareTotal?'bad':'good'}"><div class="ft-n">${Math.max(0,needTotal-spareTotal)}</div>
+        <div class="ft-l">still short after redistributing</div></div>
+      <div class="fb-tile"><div class="ft-n">${perAuditorPerDay?perAuditorPerDay.toFixed(1):'—'}</div>
+        <div class="ft-l">extra audits per auditor per day</div></div>
+    </div>
+    ${needList.length? `<div class="section-sub-title">Who is short, and by how many audits</div>
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>Associate</th><th>Status</th><th class="num">Production</th>
+        <th class="num">Audits now</th><th class="num">Band minimum</th><th class="num">Audits needed</th>
+        <th>Suggestion</th></tr></thead>
+      <tbody>${needList.slice(0,15).map(x=>`<tr class="is-outlier">
+        <td><b>${esc(x.name)}</b></td>
+        <td><span class="tag nonfatal">${esc(x.rule.label)}</span></td>
+        <td class="num">${x.production}</td>
+        <td class="num">${x.audits}</td>
+        <td class="num">${Math.ceil(x.production*x.rule.min/100)}</td>
+        <td class="num"><span class="tag outlier">+${x.need}</span></td>
+        <td style="white-space:normal;">${
+          x.rule.min>=100 ? 'Every claim must be audited — schedule the whole queue, not a sample.'
+          : x.need<=3 ? 'A small top-up — fold into the next cycle.'
+          : x.detected ? 'Flagged as an outlier, so the band tightened. Cover this before the next feedback session.'
+          : 'Spread across the period rather than auditing one day in bulk.'}</td>
+      </tr>`).join('')}</tbody>
+      ${needList.length>15? `<tfoot><tr><td colspan="7" style="font-style:italic;color:var(--text-faint);">
+        showing 15 of ${needList.length}</td></tr></tfoot>`:''}
+    </table></div>`:''}
+    ${spareList.length? `<div class="section-sub-title">Where the capacity could come from</div>
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>Associate</th><th>Status</th><th class="num">Audits now</th>
+        <th class="num">Band maximum</th><th class="num">Audits to spare</th><th>Read</th></tr></thead>
+      <tbody>${spareList.slice(0,10).map(x=>`<tr>
+        <td><b>${esc(x.name)}</b></td>
+        <td><span class="tag nonfatal">${esc(x.rule.label)}</span></td>
+        <td class="num">${x.audits}</td>
+        <td class="num">${Math.floor(x.production*x.rule.max/100)}</td>
+        <td class="num"><span class="tag major">${x.spare}</span></td>
+        <td>Above the band — these audits could go to someone short</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`:''}
+    <div class="insight-box"><div class="ib-title">Reading this</div>
+      ${needTotal<=spareTotal && needTotal>0 ? `<div class="ib-row"><span class="ib-dot"></span><span>
+        <b>The gap can be closed without extra capacity.</b> ${spareTotal} audits sit above their band while ${needTotal}
+        are needed elsewhere — this is a redistribution, not a resourcing problem.</span></div>`
+       : needTotal>spareTotal ? `<div class="ib-row"><span class="ib-dot"></span><span>
+        <b>${needTotal-spareTotal} audits short even after redistributing.</b> Across ${auditors.length||1} auditor(s)
+        over ${days} audit day(s) that is about <b>${perAuditorPerDay.toFixed(1)} more per auditor per day</b> —
+        a capacity question, not a scheduling one.</span></div>`:''}
+      ${noStatus? `<div class="ib-row"><span class="ib-dot"></span><span>
+        <b>${noStatus} associate(s) have no usable roster status</b>, so no band applies and they are left out of these
+        figures. Fill the Status column and they join in.</span></div>`:''}
+      <div class="ib-row"><span class="ib-dot"></span><span>
+        <b>The bands themselves are a setting, not a rule.</b> They were set in this app rather than taken from a Purview
+        policy — if they do not match yours, change them and every figure here moves with them.
+      </span></div>
+    </div></div>`;
+
+  return `${samplingRulesTableHTML()}${planHTML}
     <div class="card"><h3>Sampling vs Target</h3>
     <div class="card-sub">Every audited associate against the range for their status · ${under} under, ${over} over, ${list.length-under-over-noStatus} within${noStatus?` · ${noStatus} with no usable roster status`:''}</div>
     <div class="table-scroll"><table class="data">
@@ -4720,9 +4899,27 @@ function dailyTargetFor(nameKey){
   const v = TARGETS.byName ? TARGETS.byName[nameKey] : undefined;
   return (typeof v==='number' && v>0) ? v : (TARGETS.__default__ || PROD_TARGET_DEFAULT);
 }
+// The most specific figure wins: the sheet's own Target column, then the biller,
+// then the practice they worked, then the project, then the default.
 function targetForRow(p){
-  // a Target column on the sheet wins; otherwise the biller's own figure, then the default
-  return (p.target && p.target>0) ? p.target : dailyTargetFor(p.nameKey);
+  if(p.target && p.target>0) return p.target;
+  const own = TARGETS.byName ? TARGETS.byName[p.nameKey] : undefined;
+  if(typeof own==='number' && own>0) return own;
+  const prac = (TARGETS.byPractice||{})[p.practice||''];
+  if(typeof prac==='number' && prac>0) return prac;
+  const proj = (TARGETS.byProject||{})[p.project||''];
+  if(typeof proj==='number' && proj>0) return proj;
+  return TARGETS.__default__ || PROD_TARGET_DEFAULT;
+}
+function targetSourceFor(p){
+  if(p.target && p.target>0) return 'sheet';
+  const own=(TARGETS.byName||{})[p.nameKey];
+  if(typeof own==='number' && own>0) return 'biller';
+  const prac=(TARGETS.byPractice||{})[p.practice||''];
+  if(typeof prac==='number' && prac>0) return 'practice';
+  const proj=(TARGETS.byProject||{})[p.project||''];
+  if(typeof proj==='number' && proj>0) return 'project';
+  return 'default';
 }
 // PROD_MIN_ATTAIN is set in the Settings card
 
@@ -4794,15 +4991,76 @@ function targetEditorHTML(){
     <div class="tgt-grid">
       <label class="tgt-f"><span class="tgt-lbl">Default — all billers</span>
         <input type="number" min="1" step="1" data-tgt="__default__" value="${TARGETS.__default__||PROD_TARGET_DEFAULT}" /></label>
+      ${[...new Set(scopeProd().map(p=>p.project).filter(Boolean))].sort().map(pr=>`
+      <label class="tgt-f"><span class="tgt-lbl">Project — ${esc(pr)}</span>
+        <input type="number" min="1" step="1" placeholder="default" data-tgtproj="${esc(pr)}"
+               value="${(TARGETS.byProject||{})[pr]||''}" /></label>`).join('')}
+      ${[...new Set(scopeProd().map(p=>p.practice).filter(Boolean))].sort().map(pr=>`
+      <label class="tgt-f"><span class="tgt-lbl">Practice — ${esc(pr)}</span>
+        <input type="number" min="1" step="1" placeholder="default" data-tgtprac="${esc(pr)}"
+               value="${(TARGETS.byPractice||{})[pr]||''}" /></label>`).join('')}
     </div>
+    <div class="tgt-note">The most specific figure wins — a biller's own target beats the practice,
+      the practice beats the project, and the project beats the default. Leave a box empty to fall back.</div>
     <div class="tgt-note">Override an individual biller in the <b>Target / Day</b> column of the table below. Minimum attainment is ${PROD_MIN_ATTAIN}%.</div>
   </div>`;
 }
+
+// Editing a target or a roster field rebuilds the whole report, which used to
+// throw the reader back to the top with every group closed. This keeps the view
+// where it was: same scroll position, same rows open, same field focused.
+const EXPAND_KEYS = ['data-ag','data-cc','data-tc','data-ar','data-cp','data-nc','data-ts','data-aud'];
+function snapshotView(){
+  const open=[];
+  EXPAND_KEYS.forEach(k=>{
+    document.querySelectorAll(`tr[${k}]`).forEach(tr=>{
+      if(tr.classList.contains('row-child') && tr.style.display!=='none')
+        open.push(k+'='+tr.getAttribute(k));
+    });
+  });
+  const el=document.activeElement;
+  return { y: window.scrollY || document.documentElement.scrollTop || 0,
+           open: [...new Set(open)],
+           focus: el && el.dataset ? (el.dataset.tgtname||el.dataset.tgt||el.dataset.rk||'') : '',
+           field: el && el.dataset ? (el.dataset.rf||'') : '' };
+}
+function restoreView(snap){
+  if(!snap) return;
+  snap.open.forEach(sel=>{
+    const [k,v]=sel.split('=');
+    document.querySelectorAll(`tr[${k}="${v}"]`).forEach(tr=>{
+      if(tr.classList.contains('row-child')) tr.style.display='table-row';
+    });
+    const car=document.querySelector(`[data-${k.replace('data-','')}caret="${v}"]`);
+    if(car) car.innerHTML='&#9662;';
+  });
+  window.scrollTo(0, snap.y);
+  if(snap.focus){
+    const sel = snap.field
+      ? `[data-rk="${snap.focus}"][data-rf="${snap.field}"]`
+      : `[data-tgtname="${snap.focus}"], [data-tgt="${snap.focus}"]`;
+    const el=document.querySelector(sel);
+    if(el && el.focus) { try{ el.focus({preventScroll:true}); }catch(e){ el.focus(); } }
+  }
+}
+function renderKeepingView(){
+  const snap=snapshotView();
+  render();
+  requestAnimationFrame(()=>restoreView(snap));
+}
 document.addEventListener('change', async e=>{
-  const f=e.target.closest('[data-tgt], [data-tgtname]');
+  const f=e.target.closest('[data-tgt], [data-tgtname], [data-tgtproj], [data-tgtprac]');
   if(!f) return;
   const v=parseFloat(f.value);
-  if(f.dataset.tgt==='__default__'){
+  if(f.dataset.tgtproj!==undefined){
+    TARGETS.byProject = TARGETS.byProject || {};
+    if(isFinite(v)&&v>0) TARGETS.byProject[f.dataset.tgtproj]=v;
+    else delete TARGETS.byProject[f.dataset.tgtproj];
+  } else if(f.dataset.tgtprac!==undefined){
+    TARGETS.byPractice = TARGETS.byPractice || {};
+    if(isFinite(v)&&v>0) TARGETS.byPractice[f.dataset.tgtprac]=v;
+    else delete TARGETS.byPractice[f.dataset.tgtprac];
+  } else if(f.dataset.tgt==='__default__'){
     TARGETS.__default__ = (isFinite(v)&&v>0)? v : PROD_TARGET_DEFAULT;
   } else if(f.dataset.tgtname){
     TARGETS.byName = TARGETS.byName || {};
@@ -4829,7 +5087,7 @@ document.addEventListener('change', async e=>{
     }
   }
   await sset(K.targets, TARGETS);
-  render();
+  renderKeepingView();
 });
 /* ==================== CLAIM & COMMENT ANALYSIS ==================== */
 // Only runs when the production sheet is one row per claim with a claim id
@@ -4840,7 +5098,7 @@ function scopePDetail(){
     (CLIENT==='__all__'   || !r.project || r.project===CLIENT) &&
     (ASSOC==='__all__'    || r.nameKey===ASSOC) &&
     (TEAMLEAD==='__all__' || teamLeadOf(r.nameKey)===TEAMLEAD) &&
-    inRange(r.dateKey));
+    inProdRange(r.dateKey));
 }
 function normNote(t){
   return String(t||'').toLowerCase()
@@ -5468,11 +5726,15 @@ function prodDashboardHTML(){
     ${callTimeHTML()}
 
     <div class="section-title">Claim Categories</div>
-    ${claimCategoriesHTML() || needsCard('Claim Categories','the production rows carry no comments.',
+    ${!saagUsable()
+       ? saagMissingCard('Claim Categories','The action and sub-status')
+       : claimCategoriesHTML() || needsCard('Claim Categories','the production rows carry no comments.',
         'Groups every claim by what the biller did, with the reason beneath.<div class="nd-cols">Add a <b>Comment</b> column to the production sheet and this fills in.</div>')}
 
     <div class="section-title">Aging &amp; Action</div>
-    ${agingActionHTML() || needsCard('Aging & Action','no row carries both a date of service and a date worked.',
+    ${!saagUsable()
+       ? saagMissingCard('Aging & Action','The action shown against each age')
+       : agingActionHTML() || needsCard('Aging & Action','no row carries both a date of service and a date worked.',
         'Shows which age of claim was worked and what happened to it at each age.<div class="nd-cols">Add a <b>DOS</b> column to the production sheet and this fills in.</div>')}
 
     <div class="section-title">Weekly Trend</div>
@@ -5662,6 +5924,17 @@ function noteSkeletonKey(t){
   return noteExactKey(t).replace(/\b[a-z]?\d[a-z0-9]*\b/g,' # ').replace(/\s+/g,' ').trim();
 }
 // payer claim numbers written in the note — "claim#Z167TXE45321", "claim # 26237X017202"
+
+// A claim-id cell is often a placeholder rather than blank — "-", "n/a", "0".
+// Taken literally every row shares one id and the whole sheet counts as one
+// claim, which is how Impacted Claims came to read 1 for every biller.
+function realClaimId(v){
+  const t=String(v??'').trim();
+  if(!t) return '';
+  if(/^[-–—.\s]*$/.test(t)) return '';
+  if(/^(n\/?a|na|nil|none|null|blank|0+)$/i.test(t)) return '';
+  return t.toUpperCase();
+}
 function claimNosIn(t){
   const out=new Set();
   // the # (or "no."/"number") is REQUIRED — without it "claim received on…"
@@ -5677,6 +5950,11 @@ function claimNosIn(t){
 // call reference — "call ref# I-196454320", "callref#i-196207703"
 function callRefsIn(t){
   const out=new Set();
+  // NCCI and payer-guidance citations are stripped first. An article, LCD or
+  // section number repeated across claims is a shared source of truth, not one
+  // phone call covering them all.
+  t = String(t||'').replace(
+    /(publication|section|article|chapter|manual|\bLCD\b|\bNCD\b|\bNCCI\b|policy)\s*(id|no|number)?\s*[:#]?\s*[A-Z]?[\d.]+/ig, ' ');
   const re=/call\s*ref\s*#?\s*[:\-]?\s*([iI][\s\-]?[0-9][0-9\-]{5,}|\d[\d\-]{5,})/gi;
   let m; while((m=re.exec(String(t||'')))){
     const digits=m[1].replace(/[^0-9]/g,'');
@@ -5703,6 +5981,7 @@ function noteDOS(t){
 
 // One pass over the scoped rows, producing every note signal at once.
 function noteForensics(det){
+  const SAAG_OK = det.some(r=>{ const g=saagOf(r); return !!(g.action||g.status); });
   const exact=new Map(), skel=new Map(), claimNo=new Map(), callRef=new Map();
   const add=(map,k,r)=>{ if(!k) return; if(!map.has(k)) map.set(k,[]); map.get(k).push(r); };
   det.forEach(r=>{
@@ -5711,9 +5990,11 @@ function noteForensics(det){
       add(exact, noteExactKey(t), r);
       add(skel,  noteSkeletonKey(t), r);
     }
-    // the claim's own identifier: the column when present, else the note
-    const ids = (r.claimId && String(r.claimId).trim())
-      ? [String(r.claimId).trim().toUpperCase()] : claimNosIn(t);
+    // One identifier only: the Unique ID column. Mixing sources meant the same
+    // claim could key on a Uni in one row and a Claim ID in another, and the
+    // two would never be matched to each other.
+    const uid = realClaimId(r.uid);
+    const ids = uid ? [uid] : [];
     r._claimNos = ids;
     ids.forEach(c=>add(claimNo, c, r));
     r._callRefs = callRefsIn(t);
@@ -5753,8 +6034,16 @@ function noteForensics(det){
       /spoke\s+(to|with)\s+\w|s\/w\s+\w/i.test(t2) ||
       /rep\s+(said|stated|confirmed|advised|informed)|as\s+per\s+(the\s+)?rep\b|per\s+(the\s+)?rep\b/i.test(t2) ||
       /called\s+(and|to)\b/i.test(t2);
+    // A call is evidenced by a call reference OR a case, ticket or service
+    // request number — payers hand out either. What does not count is a
+    // publication, section, article, chapter, LCD, NCD or policy number: those
+    // cite NCCI or payer guidance, they are a source of truth for the decision,
+    // not proof that a call took place.
+    const SOT = /(publication|section|article|chapter|manual|\bLCD\b|\bNCD\b|\bNCCI\b|policy)\s*(id|no|number)?\s*[:#]?\s*[A-Z]?[\d.]+/ig;
+    const t3 = t2.replace(SOT, ' ');   // strip guidance citations before looking
+    const hasCaseNo = /(case|ticket|incident|service\s*request|\bSR\b|interaction)\s*(id|no|number)?\s*[:#]?\s*[A-Za-z0-9-]{4,}/i.test(t3);
     const saidCall = calledPayer;
-    r._callNoRef = saidCall && (r._callRefs||[]).length===0;
+    r._callNoRef = saidCall && (r._callRefs||[]).length===0 && !hasCaseNo;
     // the note should carry the claim number it is about, so it stands on its own
     r._noClaimNo = claimNosIn(r.note||'').length===0;
     const hasOwnId = claimNosIn(r.note||'').length>0 || !!r._noteDOS;
@@ -5763,10 +6052,12 @@ function noteForensics(det){
     // a claim worked twice is only repeat work when nothing moved — if the
     // action changed on the later touch the claim progressed, same rule the
     // touch count uses
-    r._repeatClaim = r._claimNos.some(c=>{
+    // without the Action column there is no way to tell a repeat from a claim
+    // that moved on, so the check does not run rather than guess
+    r._repeatClaim = SAAG_OK && r._claimNos.some(c=>{
       const v=claimNo.get(c)||[];
       if(v.length<2) return false;
-      return new Set(v.map(x=>claimAction(x.note))).size===1;
+      return new Set(v.map(x=>claimAction(x))).size===1;
     });
     r._repeatRef   = r._callRefs.some(c=>(callRef.get(c)||[]).length>1);
     // A claim can trip several checks at once. For counting it is placed in one
@@ -5920,7 +6211,8 @@ function fieldVariants(det, field){
 
 /* ==================== AGING x ACTION ==================== */
 // What the biller did, read from the note. Level one of the taxonomy.
-function claimAction(t){
+// Kept only for the AR workflow matching, which reads the note by design.
+function claimActionFromNote(t){
   const H=p=>new RegExp(p,'i').test(t||'');
   const acted = H('drop(ping|ped)?\\s+the\\s+claim|hence\\s+dropped|claim\\s+(is\\s+)?dropped|checked\\s+mark|updated\\s+the\\s+correct|corrected\\s+and\\s+(billed|dropped)');
   if(H('re-?submit|corrected\\s+claim|re-?bill|refil') || acted) return 'Corrected & resubmitted';
@@ -5941,7 +6233,7 @@ function ageBucketOf(days){
 }
 // Level 2 of the taxonomy — the reason behind the action, taken from the note:
 // the denial reason, the rejection reason, or paid.
-function claimReason(t){
+function claimReasonFromNote(t){
   const H=p=>new RegExp(p,'i').test(t||'');
   if(H('not\\s+billable'))                                    return 'Procedure not billable';
   if(H('excludes1|cannot\\s+be\\s+billed\\s+with|component\\s+of\\s+procedure')) return 'Diagnosis / CPT conflict';
@@ -5995,7 +6287,7 @@ function arReviewRows(det){
   det.forEach(r=>{
     const t=r.note||'';
     if(!t) return;
-    const act=claimAction(t);
+    const act=claimActionFromNote(t);
     // a scrub-hold claim never reached a payer, so no AR workflow applies
     const preBill=/scrub hold|never billed|not billed|created but never/i.test(t) && act==='Pending with client';
     // The note must actually describe a denial or rejection before a denial
@@ -6040,280 +6332,156 @@ const CMP_FIRM = [
   {k:'dos',       label:'DOS in the note contradicts the row',
    test:r=>r._dosMismatch, how:'Compare the two dates — they differ on any reading'}
 ];
-function auditCompareRows(){
-  const det=scopePDetail();
-  if(!det.length || !QA.length) return null;
-  noteForensics(det);
-  const prodBy=new Map();
-  det.forEach(r=>{ const id=String((r._claimNos&&r._claimNos[0])||r.claimId||'').trim();
-    if(id && !prodBy.has(id)) prodBy.set(id,r); });
-  const rows=[]; let unmatched=0;
-  scopeQA().forEach(a=>{
-    const id=String(a.claimId||'').trim();
-    const p=id? prodBy.get(id) : null;
-    if(!p){ unmatched++; return; }
-    rows.push({a, p, id, audErr:a.errors.length>0,
-      audCats:a.errors.map(e=>e.cat).join(', '),
-      firm:CMP_FIRM.filter(c=>c.test(p))});
-  });
-  // how many AR findings are being held back, and why
-  const ar=arReviewRows(det.filter(r=>r.note));
-  const held=ar.filter(x=>x.scen && !x.preBill && (x.miss.length||x.chg.length)).length;
-  const withNote=det.filter(r=>r.note && r.note.trim());
-  const coded=withNote.filter(r=>/\b(CO|PR|OA|PI)[- ]?\d{1,3}\b/i.test(r.note)).length;
-  let multi=0, none=0;
-  withNote.forEach(r=>{ const h=AR_WORKFLOWS.rules.filter(x=>new RegExp(x.d,'i').test(r.note));
-    if(!h.length) none++; else if(h.length>1) multi++; });
-  return {rows, unmatched, held, coded, multi, none, notes:withNote.length};
-}
-function auditCompareHTML(){
-  const R=auditCompareRows();
-  if(!R) return '';
-  const {rows, unmatched, held, coded, multi, none, notes}=R;
-  if(!rows.length) return `<div class="card needs-data"><h3>Audit Comparison</h3>
-    <div class="card-sub">No audit could be matched to a production claim.</div>
-    <div class="nd-body">Both sheets must carry the same claim number for a claim to be compared.
-      <div class="nd-cols">${unmatched} audit(s) had no matching production row. Populating the claim number in the
-        production export is what makes this possible.</div></div></div>`;
-  const flagged=rows.filter(r=>r.firm.length && !r.audErr);
-  const groups=CMP_FIRM.map(c=>({...c, rows:flagged.filter(r=>r.firm.some(f=>f.k===c.k))}))
-    .filter(g=>g.rows.length).sort((a,b)=>b.rows.length-a.rows.length);
-  const total=flagged.length;
-  const CAP=5;
-  return `<div class="card"><h3>Audit Comparison</h3>
-    <div class="card-sub">Claims in both sheets, matched on the claim number &middot;
-      ${rows.length} matched${unmatched? `, ${unmatched} audit(s) had no production row`:''}</div>
 
-    <div class="insight-box"><div class="ib-row"><span class="ib-dot"></span><span>
-      <b>This is not a scorecard for the auditor.</b> They judge whether the <b>work</b> was right, with the PMS and the
-      payer portal open. These checks only ask whether the <b>note records</b> what it should. A QA sheet with no
-      documentation parameter was never looking for a missing call reference — so a finding here usually means
-      <b>the audit did not cover this</b>, not that the auditor was careless.
-    </span></div></div>
-
-    ${groups.length? `
-    <div class="section-sub-title">Firm — check it in seconds</div>
-    <div class="data-note">Present or absent in the note. No reading of the denial involved.</div>
-    <div class="table-scroll"><table class="data">
-      <thead><tr><th>What the note lacks</th><th>Auditor said</th><th class="num">Claims</th>
-        <th>How to confirm</th><th>Claims</th></tr></thead>
-      <tbody>${groups.map((g,gi)=>{
-        const head=`<tr class="row-parent ac-toggle is-outlier" data-ac="${gi}" style="cursor:pointer;">
-          <td><span class="aud-caret" data-accaret="${gi}">&#9656;</span> <b>${esc(g.label)}</b></td>
-          <td>No error</td>
-          <td class="num">${g.rows.length}</td>
-          <td>${esc(g.how)}</td>
-          <td><button type="button" class="csv-btn" data-accsv="${esc(g.k)}">&#8595; ${g.rows.length} claim(s)</button></td></tr>`;
-        const kids=g.rows.slice(0,CAP).map(r=>`<tr class="row-child ac-row" data-ac="${gi}" style="display:none;">
-          <td colspan="5" style="padding:0;"><div class="sub-wrap">
-            <span class="mono" style="color:var(--accent);">${esc(r.id)}</span>
-            <span style="color:var(--text-dim);font-size:11px;"> &middot; ${esc(r.p.name)} &middot;
-              audited ${esc(r.a.auditDate? fmtD(r.a.auditDate):'—')} by ${esc(r.a.auditorName||'—')} &middot;
-              <span class="tag clear">No error</span></span>
-            <div class="cmt" style="font-size:10.5px;margin-top:4px;">${esc((r.p.note||'').slice(0,180))}${(r.p.note||'').length>180?'…':''}</div>
-          </div></td></tr>`).join('');
-        const more=g.rows.length>CAP? `<tr class="row-child ac-row" data-ac="${gi}" style="display:none;">
-          <td colspan="5" style="padding:5px 26px;color:var(--text-faint);font-style:italic;font-size:11px;">
-          showing ${CAP} of ${g.rows.length} — the CSV has them all</td></tr>`:'';
-        return head+kids+more;
-      }).join('')}</tbody>
-      <tfoot><tr><td>TOTAL</td><td></td><td class="num">${total}</td>
-        <td>every one checkable without judgement</td>
-        <td><button type="button" class="csv-btn" data-accsv="__all__">&#8595; all ${total} claim(s)</button></td></tr></tfoot>
-    </table></div>`
-    : `<div class="data-note">Nothing firm to report — every claim in both sheets records its claim number,
-        its call reference and a date of service that agrees with the row.</div>`}
-
-    ${held? `
-    <div class="insight-box" style="border-left:3px solid var(--bad);">
-      <div class="ib-title">Not compared — and why</div>
-      <div class="ib-row"><span class="ib-dot"></span><span>
-        <b>${held} further finding(s) are held back.</b> They rest on identifying the denial from free text, and only
-        ${fmtPct(pct(coded,notes))} of notes carry a denial code — ${multi} match more than one workflow and ${none} match none.
-        A finding built on the wrong workflow, printed beside a named auditor, is an accusation that cannot be defended.
-      </span></div>
-      <div class="ib-row"><span class="ib-dot"></span><span>
-        These still appear in <b>AR Review</b>, where they belong — as a prompt to look, with no auditor named.
-      </span></div>
-    </div>`:''}
-  </div>`;
-}
-document.addEventListener('click', e=>{
-  const t=e.target.closest('.ac-toggle');
-  if(t && !e.target.closest('.csv-btn')){
-    const id=t.dataset.ac;
-    const kids=document.querySelectorAll(`.ac-row[data-ac="${id}"]`);
-    const open=kids.length && kids[0].style.display==='none';
-    kids.forEach(tr=>{ tr.style.display=open?'table-row':'none'; });
-    const car=document.querySelector(`.aud-caret[data-accaret="${id}"]`);
-    if(car) car.innerHTML=open?'&#9662;':'&#9656;';
-    return;
-  }
-  const b=e.target.closest('[data-accsv]');
-  if(b){ e.stopPropagation(); exportAuditCompare(b.dataset.accsv); }
-});
-function exportAuditCompare(which){
-  const R=auditCompareRows();
-  if(!R){ toast('Nothing to export.'); return; }
-  let rows=R.rows.filter(r=>r.firm.length && !r.audErr);
-  if(which && which!=='__all__') rows=rows.filter(r=>r.firm.some(f=>f.k===which));
-  if(!rows.length){ toast('Nothing to export here.'); return; }
-  const q=v=>{const s=String(v??''); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-  const cols = PROD_HEADERS.length ? PROD_HEADERS
-    : ['Claim ID','Agent Name','Unique ID','Date Worked','DOS','Payer','Practice','Mode','Balance','Comment'];
-  const head=[...cols,'Auditor','Audit Date','Auditor Verdict','Auditor Error Category',
-              'What The Note Lacks','How To Confirm'];
-  const lines=[head.map(q).join(',')];
-  rows.forEach(r=>lines.push([
-    ...cols.map(c=>rawCell(rawOf(r.p)[c])),
-    r.a.auditorName||'', r.a.auditDate||'', r.audErr?'Error':'No error', r.audCats,
-    r.firm.map(f=>f.label).join(' | '), r.firm.map(f=>f.how).join(' | ')
-  ].map(q).join(',')));
-  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`audit-comparison-${slugify(which==='__all__'?'all':which)}-${(DATE_TO||new Date().toISOString().slice(0,10))}.csv`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-  toast(`${rows.length} claim(s) · ${lines.length-1} row(s) exported.`);
-}
-
-/* ============ AUDIT COMPARISON ============
-   Only the checks that read structure are compared against the auditor's
-   verdict. Anything resting on identifying the denial from free text is held
-   back: a finding built on the wrong workflow, printed beside a named auditor,
-   is an accusation that cannot be defended. */
+// The checks that read structure rather than meaning. Each is present or absent
+// in the note — no interpretation of the denial is involved, so each can be
+// settled by reading the claim.
 const FIRM = [
-  {k:'callNoRef', label:'No call reference',
-   how:'Read the note — a call is stated, no reference given',
-   test:r=>r._callNoRef},
   {k:'noClaimNo', label:'No claim number in the note',
-   how:'Read the note — no claim number written in it',
-   test:r=>r._noClaimNo},
+   how:'Read the note — no claim number written in it', test:r=>r._noClaimNo},
+  {k:'callNoRef', label:'No call reference',
+   how:'Read the note — a call is stated, no reference given', test:r=>r._callNoRef},
   {k:'exact', label:'Identical note on another claim',
-   how:'Open both claims — the text matches, numbers included',
-   test:r=>r._exactCopy},
+   how:'Open both claims — the text matches, numbers included', test:r=>r._exactCopy},
   {k:'repClaim', label:'Same claim worked twice, no change in action',
-   how:'Both rows are in the CSV, side by side',
-   test:r=>r._repeatClaim},
+   how:'Both rows are in the CSV, side by side', test:r=>r._repeatClaim},
   {k:'repRef', label:'Same call reference across claims',
-   how:'Open the claims citing it — one call cannot cover them all',
-   test:r=>r._repeatRef},
+   how:'Open the claims citing it — one call cannot cover them all', test:r=>r._repeatRef},
   {k:'dos', label:'DOS in note contradicts the row',
-   how:'Compare the two dates — they differ on any reading',
-   test:r=>r._dosMismatch}
+   how:'Compare the two dates — they differ on any reading', test:r=>r._dosMismatch}
 ];
 function auditCompareRows(){
   const det=scopePDetail();
-  if(!det.length || !QA.length) return null;
+  if(!det.length) return null;
   noteForensics(det);
-  const prodBy=new Map();
-  det.forEach(r=>{ const id=String((r._claimNos&&r._claimNos[0])||r.claimId||'').trim();
-    if(id && !prodBy.has(id)) prodBy.set(id,r); });
-  const rows=[]; let unmatched=0;
-  scopeQA().forEach(a=>{
-    const id=String(a.claimId||'').trim();
-    const p=id? prodBy.get(id) : null;
-    if(!p){ unmatched++; return; }
-    rows.push({a, p, id, audErr:a.errors.length>0,
-      audCats:a.errors.map(e=>e.cat).join(', '),
-      firm:FIRM.filter(f=>f.test(p))});
+  // The findings come from the production sheet and stand on their own. A QA
+  // sheet is optional — it only adds what the auditor said about the same claim.
+  const audBy=new Map();
+  scopeQA().forEach(a=>{ const id=String(a.claimId||'').trim();
+    if(id && !audBy.has(id)) audBy.set(id,a); });
+  const rows=[];
+  det.forEach(p=>{
+    const firm=FIRM.filter(f=>f.test(p));
+    if(!firm.length) return;
+    const id=String((p._claimNos&&p._claimNos[0])||realClaimId(p.claimId)||'').trim();
+    const a=id? audBy.get(id) : null;
+    rows.push({p, id, firm, a,
+      audited: !!a,
+      audErr: !!(a && a.errors.length),
+      audCats: a? a.errors.map(e=>e.cat).join(', ') : ''});
   });
-  // how much is being held back, and why
-  const ar=arReviewRows(det.filter(r=>r.note));
-  const arBy=new Map();
-  ar.forEach(x=>{ const id=String((x.r._claimNos&&x.r._claimNos[0])||x.r.claimId||'').trim();
-    if(id) arBy.set(id,x); });
-  let held=0, coded=0, manyHit=0, noHit=0;
+  const hasQA = scopeQA().length>0;
+  const matched = rows.filter(r=>r.audited).length;
+  // claims the auditor flagged where these checks found nothing
+  const audOnly=[];
+  if(hasQA){
+    const flagged=new Set(rows.map(r=>r.id));
+    scopeQA().forEach(a=>{
+      if(!a.errors.length) return;
+      const id=String(a.claimId||'').trim();
+      if(id && !flagged.has(id)) audOnly.push(a);
+    });
+  }
+  // how much AR Review is holding back, and why
   const notes=det.filter(r=>r.note && r.note.trim());
+  let coded=0, manyHit=0, noHit=0;
   notes.forEach(r=>{
     if(/\b(CO|PR|OA|PI)[- ]?\d{1,3}\b/i.test(r.note)) coded++;
     const h=AR_WORKFLOWS.rules.filter(x=>new RegExp(x.d,'i').test(r.note));
     if(!h.length) noHit++; else if(h.length>1) manyHit++;
   });
-  rows.forEach(r=>{ const x=arBy.get(r.id);
-    if(x && !r.audErr && (x.miss.length||x.chg.length)) held += x.miss.length+x.chg.length; });
-  return {rows, unmatched, held, coded, manyHit, noHit, notes:notes.length};
+  const ar=arReviewRows(notes);
+  let held=0;
+  ar.forEach(x=>{ if(x.scen && !x.preBill) held += x.miss.length + x.chg.length; });
+  return {rows, hasQA, matched, audOnly, held, coded, manyHit, noHit, notes:notes.length, total:det.length};
 }
 function auditCompareHTML(){
   const R=auditCompareRows();
   if(!R) return '';
-  const {rows, unmatched, held, coded, manyHit, noHit, notes}=R;
-  if(!rows.length) return `<div class="card needs-data"><h3>Audit Comparison</h3>
-    <div class="card-sub">No audit could be matched to a production claim.</div>
-    <div class="nd-body">A claim is compared only when both sheets carry the same claim number.
-      <div class="nd-cols">${unmatched} audit(s) had no matching production row.
-        Filling the claim-number column in the production export is what makes this section work.</div></div></div>`;
-  const appOnly=rows.filter(r=>!r.audErr && r.firm.length);
-  const both=rows.filter(r=>r.audErr && r.firm.length).length;
-  const clean=rows.filter(r=>!r.audErr && !r.firm.length).length;
-  const audOnly=rows.filter(r=>r.audErr && !r.firm.length);
-  const groups=FIRM.map(f=>({...f, rows:appOnly.filter(r=>r.firm.some(x=>x.k===f.k))}))
+  const {rows, hasQA, matched, audOnly, held, coded, manyHit, noHit, notes, total}=R;
+  const groups=FIRM.map(f=>({...f, rows:rows.filter(r=>r.firm.some(x=>x.k===f.k))}))
     .filter(g=>g.rows.length).sort((a,b)=>b.rows.length-a.rows.length);
+  if(!groups.length) return `<div class="card"><h3>Note Findings &amp; Audit Comparison</h3>
+    <div class="card-sub">Nothing to raise — on every claim the note carries what it should.</div></div>`;
   const CAP=5;
-  return `<div class="card"><h3>Audit Comparison</h3>
-    <div class="card-sub">Claims in both sheets, matched on the claim number ·
-      ${rows.length} matched${unmatched? `, ${unmatched} audit(s) had no production row`:''}</div>
+  const both = rows.filter(r=>r.audErr).length;
+  const clean = rows.filter(r=>r.audited && !r.audErr).length;
+  // The headings and columns never move. Without an audit file the auditor cells
+  // read "no data" — a report compared month to month keeps the same shape.
+  const nd = '<span class="na-cell">no data</span>';
+  return `<div class="card"><h3>Note Findings &amp; Audit Comparison</h3>
+    <div class="card-sub">Claims identified by the <b>Unique ID</b> column &middot;
+      checks that read structure rather than meaning &middot; ${total} claim(s) &middot;
+      ${rows.length} with a finding${hasQA? ` &middot; ${matched} of those also appear in the QA sheet, matched on Unique ID`:''}</div>
 
-    <div class="insight-box"><div class="ib-row"><span class="ib-dot"></span><span>
-      <b>This is not a scorecard for the auditor.</b> They judge whether the <b>work</b> was right, with the PMS and the
-      payer portal open. These checks only ask whether the <b>note records</b> what it should. A QA sheet with no
-      documentation parameter was never looking for a missing call reference — so a finding here usually means
-      <b>the audit did not cover this</b>, not that the auditor was careless.
-    </span></div></div>
-
-    <div class="section-sub-title">Firm — present or absent in the note, no interpretation involved</div>
-    ${groups.length? `<div class="table-scroll"><table class="data">
-      <thead><tr><th>What the note lacks</th><th>Auditor said</th><th class="num">Claims</th>
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>What the note lacks</th><th class="num">Claims</th>
+        <th class="num">Of those, audited</th><th class="num">Auditor raised it</th>
         <th>How to confirm</th><th>Claims</th></tr></thead>
       <tbody>${groups.map((g,gi)=>{
+        const aud=g.rows.filter(r=>r.audited).length;
+        const raised=g.rows.filter(r=>r.audErr).length;
         const head=`<tr class="row-parent cp-toggle" data-cp="${gi}" style="cursor:pointer;">
           <td><span class="aud-caret" data-cpcaret="${gi}">&#9656;</span> <b>${esc(g.label)}</b></td>
-          <td>No error</td>
           <td class="num">${g.rows.length}</td>
+          <td class="num">${hasQA? aud : nd}</td>
+          <td class="num">${hasQA? (raised? `<span class="tag outlier">${raised}</span>` : '0') : nd}</td>
           <td>${esc(g.how)}</td>
           <td><button type="button" class="csv-btn" data-cpcsv="${esc(g.k)}">&#8595; ${g.rows.length} claim(s)</button></td></tr>`;
         const kids=g.rows.slice(0,CAP).map(r=>`<tr class="row-child cp-row" data-cp="${gi}" style="display:none;">
-          <td colspan="5" style="padding:0;"><div class="sub-wrap">
-            <span class="mono" style="color:var(--accent);">${esc(r.id)}</span>
+          <td colspan="6" style="padding:0;"><div class="sub-wrap">
+            <span class="mono" style="color:var(--accent);">${esc(r.id||'—')}</span>
             <span style="color:var(--text-dim);font-size:11px;"> &middot; ${esc(r.p.name)} &middot;
-              audited ${esc(r.a.auditDate? fmtD(r.a.auditDate):'—')} by ${esc(r.a.auditorName||'—')} &middot;
-              <span class="tag clear">No error</span></span>
+              ${esc(r.p.dateKey? fmtD(r.p.dateKey):'')}</span>
+            ${hasQA? (r.audited
+              ? ` <span class="tag ${r.audErr?'outlier':'clear'}">Auditor: ${esc(r.a.auditorName||'—')} — ${r.audErr? esc(r.audCats) : 'no error'}</span>`
+              : ' <span class="tag">Not audited</span>')
+              : ' <span class="na-cell">auditor: no data</span>'}
             <div class="cmt" style="font-size:10.5px;margin-top:4px;">${esc((r.p.note||'').slice(0,180))}${(r.p.note||'').length>180?'…':''}</div>
           </div></td></tr>`).join('');
         const more=g.rows.length>CAP? `<tr class="row-child cp-row" data-cp="${gi}" style="display:none;">
-          <td colspan="5" style="padding:5px 26px;color:var(--text-faint);font-style:italic;font-size:11px;">
+          <td colspan="6" style="padding:5px 26px;color:var(--text-faint);font-style:italic;font-size:11px;">
           showing ${CAP} of ${g.rows.length} — the CSV has them all</td></tr>`:'';
         return head+kids+more;
       }).join('')}</tbody>
-      <tfoot><tr><td>TOTAL</td><td></td><td class="num">${appOnly.length}</td>
+      <tfoot><tr><td>TOTAL</td><td class="num">${rows.length}</td>
+        <td class="num">${hasQA? matched : nd}</td><td class="num">${hasQA? both : nd}</td>
         <td>every one checkable without judgement</td>
-        <td><button type="button" class="csv-btn" data-cpcsv="__all__">&#8595; all ${appOnly.length} claim(s)</button></td></tr></tfoot>
-    </table></div>` : `<div class="data-note">Nothing firm to raise — on every matched claim the note carries what it should.</div>`}
-
-    ${held? `<div class="section-sub-title">Not compared — and why</div>
-    <div class="data-note" style="border-left:2px solid var(--bad);">
-      <b>${held} further finding(s) are held back.</b> They rest on identifying the denial from free text, and only
-      ${fmtPct(pct(coded,notes))} of notes carry a denial code — ${manyHit} match more than one workflow, ${noHit} match none.
-      A finding built on the wrong workflow, printed beside a named auditor, is an accusation that cannot be defended.
-      These still appear in <b>AR Review</b>, where they belong — as a prompt to look, with no auditor named.<br>
-      <b>A standardised note would move them into the firm group.</b> With the denial code, claim number, source and call
-      reference in fixed fields, the denial would be read rather than guessed, and these findings would become as
-      checkable as the ones above.
-    </div>`:''}
-
-    ${audOnly.length? `<div class="section-sub-title">The auditor found something these checks did not</div>
-    <div class="table-scroll"><table class="data">
-      <thead><tr><th>Claim</th><th>Associate</th><th>Auditor</th><th>Error category</th></tr></thead>
-      <tbody>${audOnly.slice(0,12).map(r=>`<tr>
-        <td class="mono">${esc(r.id)}</td><td>${esc(r.p.name)}</td>
-        <td>${esc(r.a.auditorName||'—')}</td><td>${esc(r.audCats)}</td></tr>`).join('')}</tbody>
+        <td><button type="button" class="csv-btn" data-cpcsv="__all__">&#8595; all ${rows.length} claim(s)</button></td></tr></tfoot>
     </table></div>
-    <div class="data-note">These are errors only a person could see — the work itself, not the note. They are the
-      clearest evidence of what the audit adds beyond an automated check.</div>`:''}
 
-    <div class="data-note">${both} claim(s) where both found something &middot; ${clean} where both were clean.</div>
+    ${rows.some(r=>r.firm.some(f=>f.k==='repClaim'))? derivedActionNote('The “no change in action” test') : ''}
+    ${held? `<div class="data-note" style="border-left:2px solid var(--bad);">
+      <b>${held} further finding(s) from AR Review are not shown here.</b> They rest on identifying the denial from free
+      text, and only ${fmtPct(pct(coded,notes))} of notes carry a denial code — ${manyHit} match more than one workflow,
+      ${noHit} match none. A finding built on the wrong workflow is not firm enough to put beside a claim as fact.
+      <b>A standardised note would move them into this table.</b></div>`:''}
+
+    <div class="section-sub-title">Audit Comparison</div>
+    ${hasQA
+      ? `<div class="insight-box"><div class="ib-row"><span class="ib-dot"></span><span>
+          <b>Not a scorecard for the auditor.</b> They judge whether the <b>work</b> was right, with the PMS and the payer
+          portal open. These checks only ask whether the <b>note records</b> what it should. A QA sheet with no
+          documentation parameter was never looking for a missing call reference.<br>
+          ${both} claim(s) where the auditor also raised something &middot; ${clean} where the auditor passed it${
+            matched<rows.length? ` &middot; ${rows.length-matched} not covered by the QA sheet`:''}.
+          ${matched===0? '<b>No claim matched the QA sheet</b> — both files must carry the same claim number.':''}
+        </span></div></div>`
+      : `<div class="data-note"><b>No audit file loaded — nothing to compare against.</b>
+          Upload a QA Sheet and the two columns above fill in, and the table below appears.</div>`}
+
+    <div class="section-sub-title">The auditor found something these checks did not</div>
+    ${hasQA
+      ? (audOnly.length
+        ? `<div class="table-scroll"><table class="data">
+            <thead><tr><th>Claim</th><th>Associate</th><th>Auditor</th><th>Error category</th></tr></thead>
+            <tbody>${audOnly.slice(0,12).map(a=>`<tr>
+              <td class="mono">${esc(a.claimId||'—')}</td><td>${esc(a.name)}</td>
+              <td>${esc(a.auditorName||'—')}</td><td>${esc(a.errors.map(e=>e.cat).join(', '))}</td></tr>`).join('')}</tbody>
+          </table></div>
+          <div class="data-note">These are errors only a person could see — the work itself, not the note.</div>`
+        : `<div class="data-note">Nothing — every error the auditor raised, these checks also flagged.</div>`)
+      : `<div class="data-note"><span class="na-cell">No data — needs an audit file.</span></div>`}
   </div>`;
 }
 document.addEventListener('click', e=>{
@@ -6333,30 +6501,37 @@ document.addEventListener('click', e=>{
 function exportAuditCompare(which){
   const R=auditCompareRows();
   if(!R){ toast('Nothing to export.'); return; }
-  let rows=R.rows.filter(r=>!r.audErr && r.firm.length);
+  let rows=R.rows;
   if(which && which!=='__all__') rows=rows.filter(r=>r.firm.some(f=>f.k===which));
   if(!rows.length){ toast('Nothing to export here.'); return; }
   const q=v=>{const s=String(v??''); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
   const cols = PROD_HEADERS.length ? PROD_HEADERS
     : ['Claim ID','Agent Name','Unique ID','Date Worked','DOS','Payer','Practice','Mode','Balance','Comment'];
-  const head=[...cols,'Auditor','Audit Date','Auditor Verdict','Auditor Error Category',
-              'Finding','How To Confirm','Findings On Claim'];
+  // the auditor columns are always present, so the export shape does not change
+  // from month to month — they read "no data" when no audit file was loaded
+  const head=[...cols,'Claim Matched On','Finding','How To Confirm','Findings On Claim',
+              'Audited','Auditor','Audit Date','Auditor Verdict','Auditor Error Category'];
   const lines=[head.map(q).join(',')];
-  rows.forEach(r=>lines.push([
-    ...cols.map(c=>rawCell(rawOf(r.p)[c])),
-    r.a.auditorName||'', r.a.auditDate||'', r.audErr?'Error':'No error', r.audCats,
-    r.firm.map(f=>f.label).join(' | '), r.firm.map(f=>f.how).join(' | '), r.firm.length
-  ].map(q).join(',')));
+  rows.forEach(r=>{
+    const ND='no data';
+    const row=[...cols.map(c=>rawCell(rawOf(r.p)[c])),
+      'Unique ID', r.firm.map(f=>f.label).join(' | '), r.firm.map(f=>f.how).join(' | '), r.firm.length,
+      R.hasQA? (r.audited?'Yes':'No') : ND,
+      R.hasQA? (r.a? (r.a.auditorName||'') : '') : ND,
+      R.hasQA? (r.a? (r.a.auditDate||'') : '') : ND,
+      R.hasQA? (r.audited? (r.audErr?'Error':'No error') : '') : ND,
+      R.hasQA? r.audCats : ND];
+    lines.push(row.map(q).join(','));
+  });
   const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  a.download=`audit-comparison-${slugify(which==='__all__'?'all':which)}-${(DATE_TO||new Date().toISOString().slice(0,10))}.csv`;
+  a.download=`note-findings-${slugify(which==='__all__'?'all':which)}-${(DATE_TO||new Date().toISOString().slice(0,10))}.csv`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
   toast(`${rows.length} claim(s) · ${lines.length-1} row(s) exported.`);
 }
-
 function arReviewHTML(){
   const det=scopePDetail().filter(r=>r.note);
   if(!det.length) return '';
@@ -6393,7 +6568,7 @@ function arReviewHTML(){
         <span class="ar-ok">The structural findings &mdash; no claim number, no call reference, identical notes, a DOS that
         contradicts the row &mdash; do not depend on the denial and can be acted on directly.</span>`;
     })()}</div>
-    <div class="card-sub">Denial notes checked against the Purview AR workflows &middot;
+    <div class="card-sub">Claims identified by the <b>Unique ID</b> column &middot; denial notes checked against the Purview AR workflows &middot;
       ${AR_WORKFLOWS.rules.length} scenarios, ${AR_WORKFLOWS.rules.filter(r=>r.r.length).length} with a requirement list &middot;
       click a scenario for the claims</div>
     <div class="fb-tiles">
@@ -6451,13 +6626,14 @@ function arReviewHTML(){
         if(!h.length) none++; else if(h.length>1) many++;
       });
       return `<div class="data-note" style="border-left:2px solid var(--bad);">
-        <b>The denial itself is read from free text, so it is not always right.</b>
+        <b>The denial itself is read from free text, not taken from your sheet.</b>
         Only ${fmtPct(pct(coded,notes.length))} of notes carry a denial code; ${many} match more than one workflow and
-        ${none} match none. Where a note is measured against the wrong workflow, the requirements it is asked for will be
-        wrong too — treat <b>Scenario</b> and <b>requirement not documented</b> as a prompt to look, not a verdict.<br>
-        <b>A standardised note would fix this.</b> With the denial code, claim number, source and call reference in fixed
-        fields, the denial would be read rather than guessed, and these findings would become as firm as the ones that
-        only ask whether something is recorded.</div>`;
+        ${none} match none — so the scenario below is inferred and will not always be right.<br>
+        <b>Either of two things would fix it.</b> Export the denial code with the production sheet and it would be read
+        directly. Or standardise the note — denial code, action and next owner in fixed fields — and the reading becomes
+        reliable.
+        <span style="color:var(--text-faint);">Until then, treat <b>Scenario</b> and <b>requirement not documented</b> as a
+        prompt to look, not a verdict.</span></div>`;
     })()}
 
     <div class="insight-box"><div class="ib-title">Reading this</div>
@@ -6566,7 +6742,7 @@ document.addEventListener('click', e=>{
 });
 function exportClaimCategories(action, reason){
   const det=scopePDetail().filter(r=>r.note);
-  let rows=det.map(r=>({r, act:claimAction(r.note), rsn:claimReason(r.note)}));
+  let rows=det.map(r=>({r, act:claimAction(r), rsn:claimReason(r)}));
   if(action) rows=rows.filter(x=>x.act===action);
   if(reason) rows=rows.filter(x=>x.rsn===reason);
   if(!rows.length){ toast('Nothing to export here.'); return; }
@@ -6586,21 +6762,136 @@ function exportClaimCategories(action, reason){
   toast(`${rows.length} claim(s) · ${lines.length-1} row(s) exported.`);
 }
 
+/* The action and sub-status are read out of free text. Where a report shows
+   them, it says so — and names the two things that would make it unnecessary:
+   the SAAG columns in the sheet, or a standardised note. The note disappears
+   once those columns arrive, so it is a prompt rather than a permanent
+   disclaimer. */
+function saagColumnsPresent(){
+  const det = scopePDetail();
+  if(!det.length) return [];
+  // Exact names only. "Bucket" on its own is the aging bucket, not the owner,
+  // and matching it would wrongly suppress the warning.
+  const want = [
+    ['Status',                  ['status','claim status','current status']],
+    ['Sub Status',              ['sub status','substatus','sub-status']],
+    ['Action',                  ['action','action code','action taken']],
+    ['Bucket / Responsibility', ['bucket / responsibility','bucket/responsibility','responsibility']]
+  ];
+  const raw = det.find(r=>r._raw && Object.keys(r._raw).length);
+  if(!raw) return [];
+  const keys = Object.keys(raw._raw).map(k=>String(k).trim().toLowerCase());
+  return want.filter(([label,aliases]) =>
+    aliases.some(a=>keys.includes(a))).map(x=>x[0]);
+}
+function derivedActionNote(what){
+  const det = scopePDetail().filter(r=>r.note && r.note.trim());
+  const have = saagColumnsPresent();
+  const missing = ['Status','Sub Status','Action','Bucket / Responsibility'].filter(c=>!have.includes(c));
+  if(!missing.length){
+    // the sheet carries them, but this report is still reading the note
+    return `<div class="data-note" style="border-left:2px solid var(--warn);">
+      <b>Your sheet already carries Status, Sub Status, Action and Bucket / Responsibility</b> — but this section still
+      works the action out by reading the note, so the two may disagree. Reading those columns directly is a change worth
+      making; until then treat this as inferred rather than as your own data.</div>`;
+  }
+  let none=0, many=0;
+  det.forEach(r=>{
+    const h = (typeof AR_WORKFLOWS!=='undefined')
+      ? AR_WORKFLOWS.rules.filter(x=>new RegExp(x.d,'i').test(r.note)) : [];
+    if(!h.length) none++; else if(h.length>1) many++;
+  });
+  const cols = missing.map(c=>`<b>${c}</b>`).join(', ');
+  return `<div class="data-note" style="border-left:2px solid var(--bad);">
+    <b>${what} here ${/and/.test(what)?'are':'is'} worked out by reading the note, not taken from your sheet.</b>
+    The production file carries no ${cols} column${missing.length>1?'s':''}, and the notes follow no fixed format — so what
+    you see below is inferred from free text and will not always be right.${det.length? `
+    <span style="color:var(--text-faint);">${none} of ${det.length} notes match no known pattern; ${many} match more than one.</span>`:''}<br>
+    <b>Either of two things would fix it.</b> Export the ${missing.length===3?'SAAG':'missing'} column${missing.length>1?'s':''}
+    with the production sheet and ${missing.length>1?'they':'it'} would be read directly. Or standardise the note — denial
+    code, action and next owner in fixed fields — and the reading becomes reliable.
+    <span style="color:var(--text-faint);">Until then, treat this as a guide to where to look, not as a count you would quote.</span>
+  </div>`;
+}
+
+// The action and sub-status come from the sheet, never from the note. If the
+// SAAG columns are absent or empty the report says so instead of guessing —
+// a guess read off free text is not something to put beside a biller's name.
+function saagField(r, names){
+  const raw = r && r._raw;
+  if(!raw) return '';
+  for(const n of names){
+    for(const k of Object.keys(raw)){
+      if(String(k).trim().toLowerCase()===n){
+        const v=String(raw[k]??'').replace(/\u00a0/g,' ').trim();
+        if(v && !/^[-–—.\s]*$/.test(v) && !/^(n\/?a|na|nil|none|null)$/i.test(v)) return v;
+      }
+    }
+  }
+  return '';
+}
+function saagOf(r){
+  return {
+    status: saagField(r, ['status','claim status','current status']),
+    sub:    saagField(r, ['sub status','substatus','sub-status']),
+    action: saagField(r, ['action','action code','action taken']),
+    bucket: saagField(r, ['bucket / responsibility','bucket/responsibility','responsibility'])
+  };
+}
+// which of the four the loaded sheet actually carries data in
+function saagCoverage(){
+  const det=scopePDetail();
+  const out={status:0, sub:0, action:0, bucket:0, rows:det.length};
+  det.forEach(r=>{ const g=saagOf(r);
+    if(g.status) out.status++; if(g.sub) out.sub++;
+    if(g.action) out.action++; if(g.bucket) out.bucket++; });
+  return out;
+}
+function saagMissingCard(title, what){
+  const c=saagCoverage();
+  const missing=[['Status',c.status],['Sub Status',c.sub],['Action',c.action],
+                 ['Bucket / Responsibility',c.bucket]].filter(x=>x[1]===0).map(x=>x[0]);
+  return `<div class="card needs-data"><h3>${esc(title)}</h3>
+    <div class="card-sub">No data available in ${missing.join(', ')}.</div>
+    <div class="nd-body">${what} is taken from those columns, not worked out from the note — a guess read off free text
+      is not something to show beside a claim.
+      <div class="nd-cols">Fill ${missing.length>1?'them':'it'} in the production export and this fills in.
+        ${c.rows? `Checked ${c.rows} row(s): Status ${c.status}, Sub Status ${c.sub}, Action ${c.action},
+        Bucket / Responsibility ${c.bucket}.`:''}</div></div></div>`;
+}
+function saagUsable(){
+  const c=saagCoverage();
+  return c.status>0 || c.action>0;
+}
+
+// The action and sub-status a report shows come from the sheet's own columns.
+function claimAction(r){
+  if(typeof r==='string') return '';            // a note alone cannot answer this
+  const g=saagOf(r);
+  return g.action || g.status || '(no action in the sheet)';
+}
+function claimReason(r){
+  if(typeof r==='string') return '';
+  const g=saagOf(r);
+  // no invented sub-status: if the column is empty the row says so
+  return g.sub || '(no sub status in the sheet)';
+}
+
 function claimCategoriesHTML(){
   const det=scopePDetail().filter(r=>r.note);
   if(!det.length) return '';
   const N=det.length;
-  const rows=det.map(r=>({...r, _action:claimAction(r.note), _reason:claimReason(r.note)}));
-  const ORDER=['Corrected & resubmitted','Pending with client','Pending with patient','Pending with payer',
-               'Appeal filed','Follow up','Paid / closed','Action not identified'];
-  const tone={'Corrected & resubmitted':'clear','Appeal filed':'clear','Paid / closed':'clear',
-              'Pending with client':'major','Pending with patient':'nonfatal','Pending with payer':'nonfatal',
-              'Follow up':'nonfatal','Action not identified':''};
+  const rows=det.map(r=>({...r, _action:claimAction(r), _reason:claimReason(r)}));
+  // the actions are whatever the sheet contains, ordered by how often they appear
   const byA=groupBy(rows, r=>r._action);
-  const present=ORDER.filter(a=>byA.has(a));
+  const present=[...byA.keys()].sort((a,b)=>byA.get(b).length-byA.get(a).length);
+  const tone=(a)=>/no action in the sheet/i.test(a) ? ''
+    : /paid|closed|resolved|posted|no action/i.test(a) ? 'clear'
+    : /denied|reject|write|uncollect/i.test(a) ? 'major' : 'nonfatal';
   return `<div class="card"><h3>Claim Categories</h3>
     <div class="card-sub">Action first, reason beneath &middot; ${N} claim(s) &middot; every claim in exactly one action &middot;
       click an action to open its reasons</div>
+    ${derivedActionNote('The action and sub-status')}
     <div class="insight-box"><div class="ib-row"><span class="ib-dot"></span><span>
       <b>Action</b> is what the biller did, or who the claim now sits with. <b>Sub-status</b> is the reason behind it,
       read from the note. The same reason lands under different actions depending on whether the biller
@@ -6615,7 +6906,7 @@ function claimCategoriesHTML(){
         const subs=[...groupBy(v, r=>r._reason).entries()].sort((x,y)=>y[1].length-x[1].length);
         const head=`<tr class="row-parent cc-toggle" data-cc="${gi}" style="cursor:pointer;">
           <td><span class="aud-caret" data-cccaret="${gi}">&#9656;</span>
-            <b>${esc(a)}</b> <span class="tag ${tone[a]||''}">${subs.length} reason(s)</span></td>
+            <b>${esc(a)}</b> <span class="tag ${tone(a)}">${subs.length} sub-status</span></td>
           <td class="num">${v.length}</td>
           <td class="num">${fmtPct(pct(v.length,N))}</td>
           <td class="num">100%</td>
@@ -6656,7 +6947,7 @@ function agingActionHTML(){
     if(!r.dosKey || !r.dateKey){ noDate++; return; }
     const days=Math.round((new Date(r.dateKey)-new Date(r.dosKey))/86400000);
     if(!isFinite(days)){ noDate++; return; }
-    rows.push({...r, _age:days, _bucket:ageBucketOf(days), _action:claimAction(r.note)});
+    rows.push({...r, _age:days, _bucket:ageBucketOf(days), _action:claimAction(r)});
   });
   if(!rows.length) return `<div class="card needs-data"><h3>Aging &times; Action</h3>
     <div class="card-sub">Not available — no row carries both a date of service and a date worked.</div>
@@ -6707,6 +6998,7 @@ function agingActionHTML(){
         <td class="num">${rows.filter(r=>r._action==='Corrected & resubmitted').length}</td>
         <td class="num">${median}d</td></tr></tfoot>
     </table></div>
+    ${derivedActionNote('The action shown against each age')}
     ${noDate? `<div class="data-note">${noDate} claim(s) are missing a date of service or a date worked and are left out of these figures.</div>`:''}
     <div class="insight-box"><div class="ib-title">Reading this</div>
       ${over120? `<div class="ib-row"><span class="ib-dot"></span><span>
@@ -6753,12 +7045,12 @@ function exportTouchClaims(group, action, reason){
   byClaim.forEach((v,id)=>{
     if(v.length<2) return;
     const seq=[...v].sort((x,y)=>String(x.dateKey||'').localeCompare(String(y.dateKey||'')));
-    const acts=seq.map(r=>claimAction(r.note));
+    const acts=seq.map(r=>claimAction(r));
     const billers=[...new Set(seq.map(r=>r.name))];
     const grp = new Set(acts).size>1 ? 'moved' : (billers.length>1 ? 'dup' : 'own');
     if(grp!==group) return;
     if(action && acts[0]!==action) return;
-    const rsn=claimReason(seq[0].note);
+    const rsn=claimReason(seq[0]);
     if(reason && rsn!==reason) return;
     seq.forEach((r,i)=>picked.push({r, id, i, of:seq.length, act:acts[0], rsn, billers}));
   });
@@ -6794,6 +7086,22 @@ function needsCard(title, why, what){
     <div class="nd-body">${what}</div></div>`;
 }
 
+// Nothing can be matched without the Unique ID column, so the sections that
+// depend on it say which column is missing rather than reading 0 everywhere.
+function uniqueIdCoverage(){
+  const det=scopePDetail();
+  const have=det.filter(r=>realClaimId(r.uid)).length;
+  return {have, rows:det.length};
+}
+function noUniqueIdCard(title, what){
+  const c=uniqueIdCoverage();
+  return `<div class="card needs-data"><h3>${esc(title)}</h3>
+    <div class="card-sub">No data available in the Unique ID column.</div>
+    <div class="nd-body">${what} matches rows on <b>Unique ID</b> — not the claim number in the note, and not the
+      Claim ID column. Without it there is no way to tell which rows are the same claim.
+      <div class="nd-cols">Checked ${c.rows} row(s): ${c.have} carry a Unique ID.
+        Add the column to the production export and this fills in.</div></div></div>`;
+}
 function touchCountHTML(){
   const det = scopePDetail();
   if(!det.length) return '';
@@ -6820,11 +7128,11 @@ function touchCountHTML(){
   byClaim.forEach((v,id)=>{
     if(v.length<2) return;
     const seq=[...v].sort((x,y)=>String(x.dateKey||'').localeCompare(String(y.dateKey||'')));
-    const acts=seq.map(r=>claimAction(r.note));
+    const acts=seq.map(r=>claimAction(r));
     const dates=[...new Set(seq.map(r=>r.dateKey).filter(Boolean))].sort();
     const billers=[...new Set(seq.map(r=>r.name))];
     const rec={id, n:v.length, waste:v.length-1, seq, billers,
-      action:acts[0], reason:claimReason(seq[0].note), dates,
+      action:acts[0], reason:claimReason(seq[0]), dates,
       span: dates.length>1 ? Math.round((new Date(dates[dates.length-1])-new Date(dates[0]))/86400000) : 0};
     if(new Set(acts).size>1){ rec.path=[...new Set(acts)].join(' \u2192 '); moved.push(rec); }
     else if(billers.length>1) dup.push(rec);
@@ -6882,7 +7190,7 @@ function touchCountHTML(){
   const chase = own.filter(x=>x.span>=7).length;
 
   return `<div class="card"><h3>Touch Count</h3>
-    <div class="card-sub">Claims worked more than once inside ${esc(rangeLabel())} ·
+    <div class="card-sub">Matched on the <b>Unique ID</b> column &middot; claims worked more than once inside ${esc(rangeLabel())} ·
       matched on the claim number${det.some(r=>r.claimId)?'':' written in the note, since the Claim ID column is empty'} ·
       <b>if the action changed on the next touch it is not counted</b> — the claim moved on rather than being reworked</div>
     <div class="funnel">
@@ -6947,6 +7255,7 @@ function touchCountHTML(){
       </tfoot>
     </table></div>
 
+    ${derivedActionNote('Whether the action changed between touches')}
     <div class="data-note"><b>Three different things, kept apart.</b>
       A claim whose <b>action changed</b> moved on and is not waste.
       A claim the <b>same biller came back to</b> may be a deliberate follow-up — ${chase} of these were 7 or more days
@@ -7037,6 +7346,9 @@ function claimsByUserHTML(){
   const withDOS = det.filter(r=>r._noteDOS).length;
 
   return `<div class="card"><h3>Note Check by Biller</h3>
+    ${uniqueIdCoverage().have===0? `<div class="data-note" style="border-left:2px solid var(--bad);">
+      <b>No data available in the Unique ID column.</b> <b>Repeat claim #</b> matches rows on Unique ID, so it cannot run
+      and reads 0. The other checks read the note and are unaffected.</div>`:''}
     <div class="card-sub">Whether each note describes the claim it is attached to · ${det.length} claim(s) ·
       click a name for the claims, or take the CSV for all of them</div>
 
@@ -7045,7 +7357,8 @@ function claimsByUserHTML(){
         <th class="num">Repeat Claim #</th><th class="num">Exact Copy</th>
         <th class="num">Repeat Call Ref</th><th class="num">DOS Mismatch</th>
         <th class="num">No Claim #</th><th class="num">No Call Ref</th><th class="num">Spelling</th>
-        <th class="num">Errors</th><th class="num">Impacted Claims</th><th>Download</th></tr></thead>
+        <th class="num">Errors</th><th class="num">Rebuttals</th><th class="num">Net Errors</th>
+        <th>Rebuttal Comment</th><th class="num">Impacted Claims</th><th>Download</th></tr></thead>
       <tbody>${list.map((x,i)=>{
         const bad = x.exact || x.repClaim || x.dosBad;
         const head=`<tr class="row-parent nc-toggle ${bad?'is-outlier':''}" data-nc="${i}" style="cursor:pointer;">
@@ -7060,6 +7373,11 @@ function claimsByUserHTML(){
           <td class="num">${x.callNoRef?`<span class="tag major">${x.callNoRef}</span>`:'0'}</td>
           <td class="num">${x.spell?`<span class="tag nonfatal">${x.spell}</span>`:'0'}</td>
           <td class="num">${x.flagged?`<span class="tag outlier">${x.flagged}</span>`:'<span style="color:var(--good);font-weight:700;">0</span>'}</td>
+          <td class="num"><input class="rs-in rb-n" type="number" min="0" step="1" placeholder="0"
+               data-rbn="${esc(x.nameKey)}" value="${(REBUTTALS[x.nameKey]||{}).n ?? ''}" /></td>
+          <td class="num"><b>${Math.max(0, x.flagged - (+(REBUTTALS[x.nameKey]||{}).n || 0))}</b></td>
+          <td><input class="rs-in rb-c" type="text" placeholder="what was accepted, and why"
+               data-rbc="${esc(x.nameKey)}" value="${esc((REBUTTALS[x.nameKey]||{}).c||'')}" /></td>
           <td class="num">${x.withFind?`<span class="tag major">${x.withFind}</span>`:'<span style="color:var(--good);font-weight:700;">0</span>'}</td>
           <td>${(x.flagged+x.noClaim+x.callNoRef+x.spell)
             ? `<button type="button" class="csv-btn" data-csv="${esc(x.nameKey)}">&#8595; ${x.withFind} claim(s)</button>`
@@ -7091,6 +7409,9 @@ function claimsByUserHTML(){
         <td class="num">${T('dosBad')}</td><td class="num">${T('noClaim')}</td>
         <td class="num">${T('callNoRef')}</td><td class="num">${T('spell')}</td>
         <td class="num">${T('flagged')}</td>
+        <td class="num">${list.reduce((a,x)=>a+(+(REBUTTALS[x.nameKey]||{}).n||0),0)}</td>
+        <td class="num"><b>${list.reduce((a,x)=>a+Math.max(0,x.flagged-(+(REBUTTALS[x.nameKey]||{}).n||0)),0)}</b></td>
+        <td></td>
         <td class="num">${(()=>{
           const has=r=>r._repeatClaim||r._exactCopy||r._repeatRef||r._dosMismatch
                        ||r._noClaimNo||r._callNoRef||(r._misspelled||[]).length;
@@ -7142,7 +7463,7 @@ function claimsByUserHTML(){
     })()}
 
     ${refRows.length? `
-    <div class="section-sub-title">Call references cited on more than one claim</div>
+    <div class="section-sub-title">Call references cited on more than one claim &mdash; claims told apart by Unique ID</div>
     <div class="table-scroll"><table class="data">
       <thead><tr><th>Call Reference</th><th class="num">Claims</th><th class="num">Billers</th>
         <th>Who cited it</th><th class="num">Balance Behind</th><th>Read</th></tr></thead>
@@ -7165,14 +7486,18 @@ function claimsByUserHTML(){
           Taken from the Claim ID column when it is filled, otherwise from the claim number written inside the note.
           ${det.some(r=>r.claimId)?'':'<b>In this file the Claim ID column is empty, so every match comes from the note text.</b>'}</div>
         <div><b>Exact copy</b> — identical to another claim's note, numbers and dates included, so it still names the other claim.</div>
-        <div><b>Repeat call ref</b> — a reference <b>is</b> recorded, but the same one is cited on other claims. One call
+        <div><b>Repeat call ref</b> — <b>claims are told apart by the Unique ID column</b>. — a reference <b>is</b> recorded, but the same one is cited on other claims. One call
           often covers several claims legitimately, so read the count, not the fact — a reference appearing under two
           different billers is the one to open, since only one of them was on that call.</div>
         <div><b>DOS mismatch</b> — the date of service typed into the note is not the row's own DOS. ${withDOS} of ${det.length} notes carry a DOS and could be checked.</div>
         <div><b>Claims</b> — rows worked by this biller in the selected range.</div>
         <div><b>No claim #</b> — the note never records the claim number it is about, so it cannot be tied back to a
           claim on its own. Counted separately from Flagged.</div>
-        <div><b>No call ref</b> — <b>only raised where the note says a call was placed to the payer or insurance</b> —
+        <div><b>No call ref</b> — <b>a call reference or a case number both count</b>, so a note citing
+          <span class="mono">case# CS-4471902</span> is clean. A publication, section, article, chapter, LCD, NCD or
+          policy number does not count — those cite NCCI or payer guidance, which is the source of truth for the
+          decision, not evidence that a call took place. <b>Only raised where the note says a call was placed to the
+          payer or insurance</b> —
           a rep named, a number dialled, or wording such as "spoke to" or "as per rep". A portal check, an EOB read or a
           coding query is not a call and is never asked for a reference. Where a call is stated and no reference number
           was recorded, nothing about that call can be verified with the payer afterwards. Counted separately from Flagged.</div>
@@ -7180,7 +7505,8 @@ function claimsByUserHTML(){
           part of Flagged, since a typo is a writing matter, not a documentation fault.</div>
         <div><b>Errors</b> — <b>a count of errors, not of claims.</b> One claim that trips three checks adds three,
           and appears under all three columns. Use <b>Impacted Claims</b> for the number of claims involved.</div>
-        <div><b>Impacted Claims</b> — how many distinct claims carry at least one finding. This is the number the
+        <div><b>Impacted Claims</b> — how many distinct claims carry at least one finding, counted on the
+          <b>Unique ID</b> column. This is the number the download gives you. This is the number the
           download gives you.</div>
         <div><b>(legacy)</b> The download holds these only; clean claims are never in the file.</div>
         <div style="grid-column:1/-1;padding-top:4px;border-top:1px solid var(--border);">
@@ -7242,8 +7568,8 @@ function setRosterCount(){
   if(z) z.classList.toggle('has-data', ROSTER.length>0);
   const sub=document.getElementById('rosterSub');
   if(sub) sub.textContent = ROSTER.length
-    ? (ROSTER_UPLOADED ? 'uploaded — used ahead of the QA sheet' : 'from the QA sheet\u2019s Validation tab')
-    : 'Validation tab \u2014 or its own file';
+    ? `${ROSTER.length} people loaded`
+    : 'Upload the Team Roster \u2014 status, supervisor and dates come from here';
 }
 
 async function handleBaseQA(file){
@@ -7851,6 +8177,14 @@ document.addEventListener('click', e=>{
 });
 // inline roster corrections — kept in the app, never written back to the sheet
 document.addEventListener('change', async e=>{
+  const u=e.target.closest('[data-ua]');
+  if(u){
+    const k=u.dataset.ua, v=String(u.value||'').trim();
+    if(v) UNAUDITED_NOTES[k]=v; else delete UNAUDITED_NOTES[k];
+    await sset(K.uanotes, UNAUDITED_NOTES);
+    renderKeepingView();
+    return;
+  }
   const f=e.target.closest('[data-rk]');
   if(!f) return;
   const k=f.dataset.rk, field=f.dataset.rf;
@@ -7859,7 +8193,7 @@ document.addEventListener('change', async e=>{
   if(val==='') delete ROSTER_EDITS[k][field]; else ROSTER_EDITS[k][field]=val;
   if(!Object.keys(ROSTER_EDITS[k]).length) delete ROSTER_EDITS[k];
   await sset(K.rosteredits, ROSTER_EDITS);
-  render();
+  renderKeepingView();
 });
 
 function teamStatusHTML(){
@@ -8833,20 +9167,22 @@ function insightsDashboardHTML(){
       </table></div></div>
 
     <div class="section-title">Touch Count</div>
-    ${touchCountHTML() || needsCard('Touch Count','no production sheet is loaded.',
+    ${uniqueIdCoverage().have===0
+       ? noUniqueIdCard('Touch Count','Counting how often the same claim came back')
+       : !saagUsable()
+       ? saagMissingCard('Touch Count','Whether the action changed between touches')
+       : touchCountHTML() || needsCard('Touch Count','no production sheet is loaded.',
         'Counts how often the same claim came back, and which claims two billers both worked. It reads the production rows, not the audits.<div class="nd-cols">Upload a <b>Production Sheet</b> and this fills in.</div>')}
 
     <div class="section-title">Note Check by Biller</div>
     ${claimsByUserHTML() || needsCard('Note Check by Biller','no production sheet is loaded.',
         'Checks whether each note describes the claim it is attached to — repeated claim numbers, pasted notes, missing call references and date-of-service mismatches.<div class="nd-cols">Upload a <b>Production Sheet</b> with a comment column and this fills in.</div>')}
 
-    <div class="section-title">AR Review</div>
+    <div class="section-title">AR Review &amp; Audit Comparison</div>
     ${arReviewHTML() || needsCard('AR Review','no production sheet is loaded.',
         'Denial notes checked against the Purview AR workflows — what each workflow asks for, and whether the note records it.<div class="nd-cols">Upload a <b>Production Sheet</b> with a comment column and this fills in.</div>')}
-
-    <div class="section-title">Audit Comparison</div>
-    ${auditCompareHTML() || needsCard('Audit Comparison','it needs both sheets together.',
-        'Puts the auditor\u2019s verdict beside the checks that read structure rather than meaning, on the same claim.<div class="nd-cols">Upload both a <b>QA Sheet</b> and a <b>Production Sheet</b>, and make sure both carry the same claim number.</div>')}
+    ${auditCompareHTML() || needsCard('Note Findings','no production sheet is loaded.',
+        'Checks that read structure rather than meaning. A QA sheet is optional — it only adds the auditor\u2019s verdict beside each finding.<div class="nd-cols">Upload a <b>Production Sheet</b> and this fills in.</div>')}
 
 
 
@@ -8971,7 +9307,7 @@ function qaDashboardHTML(){
       ${kpi('Repeat Error Rate', rep.totalPairs? fmtPct(rep.rate) : '—',
         rep.rate>=30?'bad':(rep.rate>0?'warn':'good'),
         rep.totalPairs? `${rep.recurredPairs} of ${rep.totalPairs} associate-category pairs recurred` : 'no errors to track')}
-      ${kpi('Sampling %', teamSampling===null?'—':fmtPct(teamSampling),
+      ${rangesDiffer()? '' : ''}${kpi('Sampling %', teamSampling===null?'—':fmtPct(teamSampling),
         teamSampling===null?'':(teamSampling<5?'warn':'good'),
         teamSampling===null?'Upload a Production Sheet':`${totalAudits} audited of ${teamProd} produced`)}
     </div>
@@ -8984,7 +9320,7 @@ function qaDashboardHTML(){
       <div class="table-scroll"><table class="data">
         <thead><tr><th>Auditor</th><th class="num">Audits</th><th class="num">Audits/Day</th>
           <th class="num">Associates</th><th class="num">Projects</th>
-          <th class="num">Prod. on Days Covered</th><th class="num">Sampling of Covered</th><th class="num">Detection %</th>
+          <th class="num">Production</th><th class="num">Sampling of Covered</th><th class="num">Detection %</th>
           <th class="num">Errors Found</th><th class="num">Fatal</th><th class="num">Major</th>
           <th class="num">Non-Fatal</th><th class="num">Avg Score Given</th><th class="num">Avg Lag</th></tr></thead>
         <tbody>${stats.map(a=>`<tr>
@@ -9020,6 +9356,10 @@ function qaDashboardHTML(){
       </div>` : ''}
     </div>
 
+    ${rangesDiffer()? `<div class="data-note" style="border-left:2px solid var(--warn);">
+      <b>The audit and production ranges are different.</b> Audits cover ${esc(rangeLabel())} and production covers
+      ${esc(prodRangeLabel())}, so sampling % is one period's audits divided by another period's claims — read it with
+      that in mind, or tick <b>Keep the two the same</b>.</div>`:''}
     <div class="section-title">Sampling Coverage</div>
     ${auditorAssociateTableHTML(rows)}
 
@@ -9209,6 +9549,9 @@ function dashboardHTML(){
 
     <div class="section-title">Thresholds</div>
     ${settingsCardHTML()}
+
+    ${SAMPLING_IN_AGENT ? `<div class="section-title">Sampling Coverage</div>
+    ${samplingComplianceHTML(rows)}` : ''}
 
     <div class="section-title">Project &amp; Practice Quality</div>
     ${scoreCardsHTML(rows)}
