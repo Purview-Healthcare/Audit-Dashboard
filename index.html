@@ -89,12 +89,6 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   .upload-zone .u-title{font-size:13px;font-weight:600;}
   .upload-zone .u-sub{font-size:11px;color:var(--text-faint);}
   .upload-zone input[type=file]{display:none;}
-  .u-ico{flex:none;width:30px;height:30px;}
-  .u-ico .bg{fill:#13304D;}
-  :root[data-theme="dark"] .u-ico .bg{fill:#1E3A57;}
-  .u-ico .ln{fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
-  .u-ico .ln.ok{stroke:#3DD39F;} .u-ico .ln.ac{stroke:#5BC0E3;}
-  .u-ico .g{fill:var(--good);} .u-ico .t{fill:#1A9BCB;} .u-ico .p{fill:#8B78D0;}
   .u-badge{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-faint);white-space:nowrap;}
   .u-badge.on{color:var(--good);}
 
@@ -827,31 +821,31 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     <div id="sharedBar"></div>
     <div class="upload-row" id="uploadRow">
       <label class="upload-zone" id="qaZone">
-        <svg class="u-ico" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="8"/><path class="ln" d="M10 7h8.5l4 4v14H10z"/><path class="ln ok" d="M13 18.2l2.4 2.4 4.6-4.8"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
         <span><span class="u-title">QA Sheet</span><br/><span class="u-sub">Audit Data — .xlsx or .csv</span></span>
         <span class="u-badge" id="qaBadge">none</span>
         <input type="file" id="qaInput" accept=".csv,.xlsx,.xlsm" />
       </label>
       <label class="upload-zone prod" id="prodZone">
-        <svg class="u-ico" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="8"/><rect class="g" x="7.5" y="17" width="4.5" height="8" rx="1"/><rect class="t" x="13.75" y="12" width="4.5" height="13" rx="1"/><rect class="p" x="20" y="7" width="4.5" height="18" rx="1"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
         <span><span class="u-title">Production Sheet</span><br/><span class="u-sub">For sampling % — .xlsx or .csv</span></span>
         <span class="u-badge" id="prodBadge">none</span>
         <input type="file" id="prodInput" accept=".csv,.xlsx,.xlsm" />
       </label>
       <label class="upload-zone" id="rosterZone">
-        <svg class="u-ico" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="8"/><circle class="ln" cx="13" cy="12" r="3.5"/><path class="ln" d="M7 24.5c0-3.6 2.7-6.3 6-6.3s6 2.7 6 6.3"/><circle class="ln ac" cx="21.5" cy="12.8" r="2.7"/><path class="ln ac" d="M20.6 18.4c2.6.4 4.4 2.8 4.4 6"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
         <span><span class="u-title">Team Roster <span class="u-opt">optional</span></span><br/><span class="u-sub" id="rosterSub">Status, supervisor and dates come from here</span></span>
         <span class="u-badge" id="rosterCount">none</span>
         <input type="file" id="rosterInput" accept=".csv,.xlsx,.xlsm" />
       </label>
       <label class="upload-zone base" id="baseQaZone">
-        <svg class="u-ico" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="8"/><path class="ln" d="M8.6 16a7.4 7.4 0 1 0 2.2-5.2"/><path class="ln" d="M8.6 8.2v3.6h3.6"/><path class="ln ac" d="M16 12v4.2l2.8 1.8"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 019-9 9 9 0 016.7 3M21 12a9 9 0 01-9 9 9 9 0 01-6.7-3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>
         <span><span class="u-title">Previous QA Sheet <span class="u-opt">optional</span></span><br/><span class="u-sub" id="baseQaSub">Last week&rsquo;s or last month&rsquo;s audits — or an exported .json</span></span>
         <span class="u-badge" id="baseQaCount">none</span>
         <input type="file" id="baseQaInput" accept=".json,.csv,.xlsx,.xlsm" />
       </label>
       <label class="upload-zone base" id="baseProdZone">
-        <svg class="u-ico" viewBox="0 0 32 32" aria-hidden="true"><rect class="bg" width="32" height="32" rx="8"/><path class="ln" d="M8.6 16a7.4 7.4 0 1 0 2.2-5.2"/><path class="ln" d="M8.6 8.2v3.6h3.6"/><path class="ln ac" d="M16 12v4.2l2.8 1.8"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 019-9 9 9 0 016.7 3M21 12a9 9 0 01-9 9 9 9 0 01-6.7-3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>
         <span><span class="u-title">Previous Production <span class="u-opt">optional</span></span><br/><span class="u-sub" id="baseProdSub">Last week&rsquo;s or last month&rsquo;s claims — for volume comparison</span></span>
         <span class="u-badge" id="baseProdCount">none</span>
         <input type="file" id="baseProdInput" accept=".csv,.xlsx,.xlsm" />
@@ -11834,6 +11828,10 @@ function dashboardHTML(){
   add(document.getElementById('dataMenuBtn'),'database');
   [['publishBtn','send'],['sharedSrcBtn','link'],['exportBtn','download'],['importBtn','upload']].forEach(([id,k])=>add(document.getElementById(id),k));
   document.querySelectorAll('.dm-item[data-clear]').forEach(b=>add(b,'trash'));
+  [['qaZone','fileCheck'],['prodZone','sheet'],['rosterZone','idCard'],['baseQaZone','history'],['baseProdZone','archive']].forEach(([id,k])=>{
+    const z=document.getElementById(id); if(!z) return;
+    const old=z.querySelector(':scope > svg'); if(old) old.outerHTML=svg(k); else add(z,k);
+  });
 
   /* ---- section titles + KPI tiles (re-run after each render) ---- */
   const SECTION=[
