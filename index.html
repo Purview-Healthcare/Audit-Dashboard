@@ -1246,6 +1246,7 @@ function rebuttalFields(r){
       rebuttal: raised,
       rebuttalOutcome: !isRaised ? '' : /^agree/i.test(v) ? 'Overturned' : /^disagree/i.test(v) ? 'Upheld' : '',
       rebuttalBy: String(pick(r,['Re-Audit By - Ops'])??'').trim(),
+      rebuttalVerdict: v,
       reAuditBy: '', reAuditVerdict: ''
     };
   }
@@ -1292,7 +1293,7 @@ function parseAudit(rows){
       errs.push({ pillar: def? def.type : '', cat,
                   crit: def? def.crit : (bucket==='fatal'?'Fatal Error':bucket==='major'?'Major Error':'Non - Fatal Error'),
                   bucket: defBucket!=='other' ? defBucket : bucket,
-                  weight: def? def.weight : 0, desc: def? def.desc : '' });
+                  weight: def? def.weight : 0, desc: def? def.desc : '', known: !!def });
     }
 
     // FORMAT B (older sheets): one column per error TYPE holding the category name.
@@ -1373,6 +1374,7 @@ function parseAudit(rows){
       auditorName: String(pick(r,['Auditor Name'])??'').trim(),
       auditorId: String(pick(r,['Auditor Emp ID'])??'').trim(),
       auditCategory: String(pick(r,['Audit Category'])??'').trim(),
+      voip: String(pick(r,['VOIP#','VOIP #','VOIP'])??'').trim(),
       qaStatus: String(pick(r,['QA Status'])??'').trim(),
       findings: String(pick(r,['Findings'])??'').trim(),
       feedbackStatus: String(pick(r,['Feedback Status'])??'').trim(),
@@ -11521,6 +11523,127 @@ function qaDashboardHTML(){
   `;
 }
 
+
+/* ==================== SHEET CHECKS ==================== */
+// The QA sheet's columns can contradict each other — QA Status says Error but no
+// parameter is marked, a finding is written but nothing is flagged — and the score
+// follows the parameter columns only, so those rows score 100% without anyone
+// noticing. These checks list the rows to fix in the sheet. Rows are named by
+// Sr. No, associate and date worked only, never by patient or claim detail.
+const NO_FINDING = /^(no error|no errors|none|nil|na|n\/a|-|)$/i;
+const SHEET_CHECKS = [
+  { id:'statusNoParam', tone:'bad',
+    label:'QA Status is "Error" but no parameter is marked Yes',
+    why:'The score follows the parameter columns, so these audits score 100%. Mark the parameter that applies, or change QA Status.',
+    test:r=>/^error$/i.test(r.qaStatus||'') && !r.errors.length },
+  { id:'paramNoStatus', tone:'bad',
+    label:'Parameters are marked Yes but QA Status is "No Error" or "FYI"',
+    why:'The audit loses points for the marked errors while its status says it was clean.',
+    test:r=>r.errors.length>0 && /^(no error|fyi)$/i.test(r.qaStatus||'') },
+  { id:'findingNoParam', tone:'warn',
+    label:'A finding is written but nothing is marked and QA Status is "No Error"',
+    why:'If the finding is an error, mark the parameter; if it is only an observation, set QA Status to FYI.',
+    test:r=>!r.errors.length && /^no error$/i.test(r.qaStatus||'') && !NO_FINDING.test(String(r.findings||'').trim()) },
+  { id:'paramNoFinding', tone:'warn',
+    label:'Parameters are marked Yes but Findings is blank or "No Error"',
+    why:'The associate gets the deduction with no written finding to learn from.',
+    test:r=>r.errors.length>0 && NO_FINDING.test(String(r.findings||'').trim()) },
+  { id:'rebuttalNoError', tone:'warn',
+    label:'Rebuttal Status is "Yes" on an audit with no error marked',
+    why:'There is nothing to rebut. Rebuttal & Overturn Rate counts it anyway.',
+    test:r=>/^y(es)?$/i.test(r.rebuttal||'') && !r.errors.length },
+  { id:'reworkNoError', tone:'warn',
+    label:'Rework Needed is "Yes" on a "No Error" audit',
+    why:'Either an error was missed on the parameter columns or the rework flag is wrong.',
+    test:r=>/^y(es)?$/i.test(r.reworkNeeded||'') && !r.errors.length && /^no error$/i.test(r.qaStatus||'') },
+  { id:'verdictNoRebuttal', tone:'info',
+    label:'Re-Audit Verdict - QA is filled but no rebuttal was raised',
+    why:'The verdict is ignored unless Rebuttal Status is "Yes". Clear it, or set Rebuttal Status.',
+    test:r=>!!String(r.rebuttalVerdict||'').trim() && !/^y(es)?$/i.test(r.rebuttal||'') },
+  { id:'callNoVoip', tone:'warn',
+    label:'Call Audit without a VOIP#',
+    why:'The sheet requires a VOIP# on every Call Audit so the call can be found again.',
+    test:r=>/call audit/i.test(r.auditCategory||'') && r.voip!==undefined && !r.voip },
+  { id:'unknownParam', tone:'bad',
+    label:'An error column is not on the Error Parameters tab',
+    why:'Its weight and criticality are unknown, so it deducts nothing. Add it to Error Parameters or rename the column to match.',
+    test:r=>r.errors.some(e=>e.known===false) },
+  { id:'scoreDiffers', tone:'info',
+    label:'The sheet’s Final Audit Score % or Total Deduction disagrees with the parameters',
+    why:'The dashboard recalculates from the marked parameters and their weights; check the sheet’s formulas on these rows.',
+    test:r=>!!(r.scoreWasFlag || r.dedMismatch) }
+];
+function sheetChecksHTML(rows){
+  if(!rows.length) return '';
+  const results = SHEET_CHECKS.map(c=>({c, hits: rows.filter(r=>{ try{ return c.test(r); }catch(e){ return false; } })}));
+  const failing = results.filter(x=>x.hits.length);
+  const needFix = new Set(failing.filter(x=>x.c.tone!=='info').flatMap(x=>x.hits.map(r=>r.uid||r)));
+  const notes = new Set(failing.filter(x=>x.c.tone==='info').flatMap(x=>x.hits.map(r=>r.uid||r)));
+  const scored100 = (results.find(x=>x.c.id==='statusNoParam')||{hits:[]}).hits.length;
+  const ref = r=>`<span style="white-space:nowrap;">${r.srNo?'Sr '+esc(r.srNo):'row'} · ${esc(r.name||'')} · ${esc(fmtD(r.dateWorked)||r.dateWorked||'')}</span>`;
+  const tile=(n,l,tone)=>`<div class="fb-tile ${tone||''}"><div class="ft-n">${n}</div><div class="ft-l">${esc(l)}</div></div>`;
+  const toneTag = t=> t==='bad'?'fatal':t==='warn'?'major':'status';
+  const passed = results.filter(x=>!x.hits.length);
+  return `<div class="card"><h3>Sheet Checks</h3>
+    <div class="card-sub">${needFix.size
+      ? `${needFix.size} of ${rows.length} audit row(s) contradict themselves in the QA sheet · fix them in the sheet and upload it again`
+      : `all ${rows.length} audit row(s) are consistent`}${notes.size?` · ${notes.size} row(s) with a note`:''}</div>
+    <div class="fb-tiles">
+      ${tile(rows.length,'audit rows checked','')}
+      ${tile(needFix.size,'rows to fix in the sheet', needFix.size?'bad':'good')}
+      ${tile(scored100,'scored 100% while QA Status says Error', scored100?'bad':'good')}
+      ${tile(notes.size,'rows with a note only', notes.size?'warn':'good')}
+    </div>
+    ${failing.length ? `<div class="table-scroll"><table class="data">
+      <thead><tr><th>Check</th><th class="num">Rows</th><th>Rows to fix</th></tr></thead>
+      <tbody>${failing.map(({c,hits})=>`<tr class="${c.tone==='bad'?'is-outlier':''}">
+        <td style="min-width:300px;"><b>${esc(c.label)}</b>
+          <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px;">${esc(c.why)}</div></td>
+        <td class="num"><span class="tag ${toneTag(c.tone)}">${hits.length}</span></td>
+        <td style="font-size:12px;">${hits.slice(0,8).map(ref).join('<br>')}${hits.length>8?`<br><span style="color:var(--text-faint);">+ ${hits.length-8} more</span>`:''}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>` : ''}
+    ${passed.length ? `<div style="font-size:12px;color:var(--text-dim);margin-top:10px;"><b>Passed:</b> ${passed.map(x=>esc(x.c.label)).join(' · ')}</div>` : ''}
+  </div>`;
+}
+function paramsInUseHTML(rows){
+  if(!PARAMS.length) return `<div class="card needs-data"><h3>Error Parameters in Use</h3>
+    <div class="card-sub">Not available — the QA sheet had no Error Parameters tab.</div>
+    <div class="nd-body">With it, every error column is weighed and given its criticality from the sheet itself.
+      <div class="nd-cols">Include an <b>Error Parameters</b> tab with <b>Error Type</b>, <b>Error Category</b>, <b>Error Description</b>, <b>Error Criticality</b> and <b>Weightage</b>.</div></div></div>`;
+  const key = s=>String(s??'').trim().toLowerCase().replace(/[\s_\-\/]+/g,'');
+  const marked = new Map();
+  rows.forEach(r=>r.errors.forEach(e=>{ const k=key(e.cat); marked.set(k,(marked.get(k)||0)+1); }));
+  const total = +PARAMS.reduce((s,p)=>s+(p.weight||0),0).toFixed(4);
+  const by = b=>PARAMS.filter(p=>critBucket(p.crit)===b);
+  const wOk = Math.abs(total-1)<0.0005;
+  const critLabel = p=>{ const b=critBucket(p.crit); return b==='fatal'?'<span class="tag fatal">Fatal</span>':b==='major'?'<span class="tag major">Major</span>':b==='nonfatal'?'<span class="tag nonfatal">Non-Fatal</span>':esc(p.crit||'—'); };
+  const list = PARAMS.map(p=>{
+    const bare = String(p.cat).replace(/\s*\((F|M|NF)\)\s*$/i,'');
+    return {p, n: (marked.get(key(p.cat))||0) + (key(bare)!==key(p.cat) ? (marked.get(key(bare))||0) : 0)};
+  });
+  const tile=(n,l,tone)=>`<div class="fb-tile ${tone||''}"><div class="ft-n">${n}</div><div class="ft-l">${esc(l)}</div></div>`;
+  return `<div class="card"><h3>Error Parameters in Use</h3>
+    <div class="card-sub">Read from the QA sheet’s Error Parameters tab · any Fatal error scores the audit 0; otherwise the weights of the marked parameters are deducted</div>
+    <div class="fb-tiles">
+      ${tile(PARAMS.length,'parameters','')}
+      ${tile(`${by('fatal').length} · ${by('major').length} · ${by('nonfatal').length}`,'fatal · major · non-fatal','')}
+      ${tile(fmtPct(total*100),'weights total', wOk?'good':'bad')}
+      ${tile(list.filter(x=>x.n).length,'marked at least once in this range','')}
+    </div>
+    ${wOk?'':`<div class="banner bad" style="margin:8px 0;"><div><div class="b-title">Weights add up to ${fmtPct(total*100)}, not 100%</div>
+      Scores still follow the sheet’s rule, but a clean-but-for-everything audit would not reach 0. Check the Weightage column.</div></div>`}
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>Error Type</th><th>Error Category</th><th>Criticality</th><th class="num">Weight</th><th class="num">Marked</th><th>Description</th></tr></thead>
+      <tbody>${list.map(({p,n})=>`<tr>
+        <td>${esc(p.type)}</td><td><b>${esc(p.cat)}</b></td><td>${critLabel(p)}</td>
+        <td class="num">${fmtPct((p.weight||0)*100)}</td><td class="num">${n||'<span style="color:var(--text-faint);">0</span>'}</td>
+        <td style="font-size:12px;color:var(--text-dim);">${esc(p.desc)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="3">TOTAL</td><td class="num">${fmtPct(total*100)}</td><td class="num">${[...marked.values()].reduce((a,b)=>a+b,0)}</td><td></td></tr></tfoot>
+    </table></div>
+  </div>`;
+}
+
 /* ============================ DASHBOARD ============================ */
 /* ==================== DATA QUALITY ==================== */
 // Silent disagreements in the sheet move real scores, so they are reported.
@@ -11679,6 +11802,10 @@ function dashboardHTML(){
 
     <div class="section-title">Thresholds &amp; Targets</div>
     ${settingsCardHTML()}
+
+    <div class="section-title">Sheet Checks &amp; Error Parameters</div>
+    ${sheetChecksHTML(rows)}
+    ${paramsInUseHTML(rows)}
 
     ${samplingScopeNote()}
     <div class="section-title">Quality by Project &amp; Practice</div>
@@ -11904,6 +12031,7 @@ function dashboardHTML(){
 
   /* ---- section titles + KPI tiles (re-run after each render) ---- */
   const SECTION=[
+    [/sheet check/,'listChecks'],
     [/movement/,'compare'],[/pareto|error type|rca/,'pareto'],[/outlier|watchlist/,'flag'],
     [/threshold|daily target|vs target/,'target'],[/payer/,'landmark'],[/aging|claim value/,'clock'],
     [/rework|correction|closure/,'rotate'],[/week|day\b/,'calendar'],[/recommended|suggested/,'sparkles'],
