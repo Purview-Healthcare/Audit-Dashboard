@@ -1337,14 +1337,25 @@ function postingWorkbook(wb, find){
     if(/(not|un)\s*(accept|valid|agree)|reject|disagree|uphe|invalid|declin|denied/i.test(t)) return 'Upheld';
     if(/accept|agree|overturn|valid|approv|revers/i.test(t)) return 'Overturned';
     return t; };
+  // Total Amount: a cell formatted as a date arrives as a Date; turn it back
+  // into the number that was typed (Excel serial, local time)
+  const amountOf = v=>{
+    if(v instanceof Date && !isNaN(v)) return +(((v.getTime() - v.getTimezoneOffset()*60000) - Date.UTC(1899,11,30)) / 864e5).toFixed(2);
+    return v;
+  };
   const weekOfWork = v=>{ const d=normDate(v); if(!d) return '';
     const x=new Date(d.key+'T00:00:00'); x.setDate(x.getDate()-((x.getDay()+6)%7)); return weekEndLabel(x); };
 
+  // Emp ID -> name from the Validation Sheet, for rows whose User Name lookup is
+  // blank (formula not calculated) or "Not Found"
+  const vTab = find('validation');
+  const nameByEmp = new Map((vTab ? sheetToRows(wb, vTab, 0) : []).map(v=>[
+    String(pick(v,['Emp ID','ECN'])??'').trim().toLowerCase(), String(pick(v,['User Name','Name'])??'').trim()]).filter(([k,n])=>k&&n));
   const rows = [];
   for(const r of raw){
     const emp = String(pick(r,['Emp ID','Emp. ID'])??'').trim();
     let user = String(pick(r,['User Name','Associate Name'])??'').trim();
-    if(!user || /^not found$/i.test(user)) user = emp;   // keep the audit, named by Emp ID
+    if(!user || /^not found$/i.test(user)) user = nameByEmp.get(emp.toLowerCase()) || emp;   // else keep the audit, named by Emp ID
     if(!user) continue;
     // a rebuttal is raised only when who / when / why is filled; QA Decision is
     // filled on every row (Not Required when there is nothing to decide)
@@ -1380,7 +1391,8 @@ function postingWorkbook(wb, find){
       'Rebuttal Comment': pick(r,['Rebuttal Reason']),
       'Rework Needed - QA': rwNeeded, 'Rework Complete - QA': rwDone,
       'Final Audit Score %': pick(r,['Final Score %','Final Score']),
-      'Defects / Error Count': pick(r,['Error Count'])
+      'Defects / Error Count': pick(r,['Error Count']),
+      'Billed Amount($)': amountOf(pick(r,['Total Amount','Payment Amount','Amount']))
     };
     for(const c of cats) o[c.cat+' (F)'] = pick(r,[c.cat]);
     rows.push(o);
@@ -1389,7 +1401,9 @@ function postingWorkbook(wb, find){
   const vName = find('validation');
   const roster = vName ? parseRoster(sheetToRows(wb, vName, 0).map(v=>({
     'Name': pick(v,['User Name','Name']), 'Status': pick(v,['Status']),
-    'Supervisor': pick(v,['Supervisior','Supervisor']), 'ECN': pick(v,['Emp ID','ECN'])}))) : [];
+    'Supervisor': pick(v,['Supervisior','Supervisor']), 'ECN': pick(v,['Emp ID','ECN']),
+    // DOJ is both the joining date and, with no separate one, the start date tenure is measured from
+    'DOJ': pick(v,['DOJ','Date of Joining']), 'Production Start Date': pick(v,['Production Start Date','DOJ','Date of Joining'])}))) : [];
   return {rows, paramRows, roster};
 }
 
@@ -11842,6 +11856,74 @@ function paramsInUseHTML(rows){
   </div>`;
 }
 
+
+/* ==================== PAYMENT VALUE (Payment Posting) ====================
+   The Total Amount column on the Payment Posting sheet is the money behind each
+   audited posting. Value at risk is the amount on audits where an error was
+   found: a $4,000 posting with the wrong patient responsibility matters more
+   than a $40 one. An audit with errors in two categories counts its full amount
+   under each, so the category table can add up to more than the total. */
+function postingValueHTML(rows){
+  const withAmt = rows.filter(r=>r.billed>0);
+  if(!withAmt.length) return `<div class="card needs-data"><h3>Payment Value</h3>
+    <div class="card-sub">Not available — Total Amount is empty on these rows.</div>
+    <div class="nd-body">With it, errors are weighed by the money behind them: value at risk by associate, payer and error category.
+      <div class="nd-cols">Fill <b>Total Amount</b> on the Total Data tab, formatted as a number or currency (not a date).</div></div></div>`;
+  const amt = rs=>rs.reduce((s,r)=>s+(r.billed||0),0);
+  const risk = rs=>amt(rs.filter(r=>r.errors.length));
+  const tTot = amt(withAmt), tRisk = risk(withAmt);
+  const tile=(n,l,tone)=>`<div class="fb-tile ${tone||''}"><div class="ft-n">${n}</div><div class="ft-l">${esc(l)}</div></div>`;
+  const table = (label, groups)=>{
+    const list = [...groups.entries()].map(([k,rs])=>({k, audits:rs.length, total:amt(rs),
+      errAudits:rs.filter(r=>r.errors.length).length, risk:risk(rs)}))
+      .sort((a,b)=>b.risk-a.risk || b.total-a.total);
+    return `<div class="table-scroll"><table class="data">
+      <thead><tr><th>${esc(label)}</th><th class="num">Audits</th><th class="num">Amount Audited</th>
+        <th class="num">Audits With Error</th><th class="num">Value at Risk</th><th class="num">% of Amount at Risk</th></tr></thead>
+      <tbody>${list.map(x=>`<tr class="${x.total>0 && pct(x.risk,x.total)>=25?'is-outlier':''}">
+        <td><b>${esc(x.k||'(blank)')}</b></td><td class="num">${x.audits}</td><td class="num">${money(x.total)}</td>
+        <td class="num">${x.errAudits}</td>
+        <td class="num">${x.risk?`<span style="color:var(--bad);font-weight:700;">${money(x.risk)}</span>`:money(0)}</td>
+        <td class="num">${x.total>0? fmtPct(pct(x.risk,x.total)) : '—'}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>TOTAL</td><td class="num">${withAmt.length}</td><td class="num">${money(tTot)}</td>
+        <td class="num">${withAmt.filter(r=>r.errors.length).length}</td><td class="num">${money(tRisk)}</td>
+        <td class="num">${tTot>0? fmtPct(pct(tRisk,tTot)) : '—'}</td></tr></tfoot>
+    </table></div>`;
+  };
+  // by error category: each audit's amount counted once per category it carries
+  const byCat = new Map();
+  withAmt.forEach(r=>[...new Set(r.errors.map(e=>e.cat))].forEach(c=>{
+    const x = byCat.get(c) || {n:0, amt:0}; x.n++; x.amt += r.billed||0; byCat.set(c,x); }));
+  const cats = [...byCat.entries()].sort((a,b)=>b[1].amt-a[1].amt);
+  const worst = cats[0];
+  const missing = rows.length - withAmt.length;
+  return `<div class="card"><h3>Payment Value</h3>
+    <div class="card-sub">Total Amount on audited postings · <b>value at risk</b> is the amount on audits where an error was found${missing?` · ${missing} audit(s) have no amount and are left out`:''}</div>
+    <div class="fb-tiles">
+      ${tile(money(tTot),'amount audited','')}
+      ${tile(money(tRisk),'value at risk (audits with an error)', tRisk>0?'bad':'good')}
+      ${tile(tTot>0? fmtPct(pct(tRisk,tTot)) : '—','share of amount at risk', tTot>0 && pct(tRisk,tTot)>=10?'bad':'')}
+      ${tile(money(tTot/withAmt.length),'average amount per audit','')}
+    </div>
+    <h4 style="margin:14px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">By associate</h4>
+    ${table('Associate', groupBy(withAmt, r=>r.name))}
+    <h4 style="margin:14px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">By payer</h4>
+    ${table('Payer', groupBy(withAmt, r=>r.payer))}
+    ${cats.length ? `<h4 style="margin:14px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);">By error category</h4>
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>Error Category</th><th class="num">Audits</th><th class="num">Value at Risk</th><th class="num">Share of Value at Risk</th></tr></thead>
+      <tbody>${cats.map(([c,x])=>`<tr><td><b>${esc(c)}</b></td><td class="num">${x.n}</td>
+        <td class="num"><span style="color:var(--bad);font-weight:700;">${money(x.amt)}</span></td>
+        <td class="num">${tRisk>0? fmtPct(pct(x.amt,tRisk)) : '—'}</td></tr>`).join('')}</tbody>
+    </table></div>` : ''}
+    <div class="insight-box"><div class="ib-title">Reading this</div><ul>
+      ${tRisk>0 ? `<li><b>${money(tRisk)}</b> of the <b>${money(tTot)}</b> audited (${fmtPct(pct(tRisk,tTot))}) sits on postings with an error.</li>` : '<li>No audited posting with an amount had an error in this range.</li>'}
+      ${worst ? `<li><b>${esc(worst[0])}</b> carries the most money at risk (${money(worst[1].amt)}) — weigh it alongside the Pareto, which counts errors, not dollars.</li>` : ''}
+      <li>An audit with errors in two categories counts its full amount under each, so the category table can add up to more than the total.</li>
+    </ul></div>
+  </div>`;
+}
+
 /* ============================ DASHBOARD ============================ */
 /* ==================== DATA QUALITY ==================== */
 // Silent disagreements in the sheet move real scores, so they are reported.
@@ -12026,6 +12108,9 @@ function dashboardHTML(){
     ${watchlistHTML()}
 
     ${splitByClientHTML()}
+
+    <div class="section-title">Payment Value</div>
+    ${postingValueHTML(rows)}
 
     <div class="section-title">Recommended Actions</div>
     ${recommendedActionsHTML(rows)}
@@ -12319,7 +12404,7 @@ function applyLob(){
 
   /* ---- section titles + KPI tiles (re-run after each render) ---- */
   const SECTION=[
-    [/sheet check/,'listChecks'],
+    [/sheet check/,'listChecks'],[/payment value/,'landmark'],
     [/movement/,'compare'],[/pareto|error type|rca/,'pareto'],[/outlier|watchlist/,'flag'],
     [/threshold|daily target|vs target/,'target'],[/payer/,'landmark'],[/aging|claim value/,'clock'],
     [/rework|correction|closure/,'rotate'],[/week|day\b/,'calendar'],[/recommended|suggested/,'sparkles'],
