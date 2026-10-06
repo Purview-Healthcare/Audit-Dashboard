@@ -11711,6 +11711,17 @@ const SHEET_CHECKS = [
     why:'The dashboard recalculates from the marked parameters and their weights; check the sheet’s formulas on these rows.',
     test:r=>!!(r.scoreWasFlag || r.dedMismatch) }
 ];
+// Sheet Checks sits near the end of the Payment Posting report, so rows that need
+// fixing in the sheet are also flagged in one line at the top.
+function sheetCheckWarning(rows){
+  if(!rows.length) return '';
+  const hits = new Set();
+  SHEET_CHECKS.filter(c=>c.tone!=='info').forEach(c=>rows.forEach(r=>{ try{ if(c.test(r)) hits.add(r.uid||r); }catch(e){} }));
+  if(!hits.size) return '';
+  return `<div class="banner bad"><div><div class="b-title">${hits.size} audit row(s) contradict themselves in the QA sheet</div>
+    Scores on those rows may be wrong until the sheet is fixed.
+    <a href="#" onclick="const t=[...document.querySelectorAll('.section-title')].find(x=>/^Sheet Checks/.test(x.textContent.trim()));if(t)t.scrollIntoView({behavior:'smooth'});return false;">See Sheet Checks</a></div></div>`;
+}
 function sheetChecksHTML(rows){
   if(!rows.length) return '';
   const results = SHEET_CHECKS.map(c=>({c, hits: rows.filter(r=>{ try{ return c.test(r); }catch(e){ return false; } })}));
@@ -11906,44 +11917,10 @@ function dashboardHTML(){
     return {key:e.key, ...statBlock(e.rows, pr), outlier:avgScore(e.rows)<OUTLIER_THRESHOLD};
   });
 
-  return `
-    ${banner}
-    <div class="kpi-grid">
-      ${(()=>{
-        // counted from the data, not the roster, so it follows the filters
-        const audited = new Set(rows.map(r=>r.nameKey).filter(Boolean));
-        const known = new Set();
-        (ROSTER||[]).forEach(r=>{ if(r.nameKey) known.add(r.nameKey); });
-        scopeProd().forEach(p2=>{ if(p2.nameKey) known.add(p2.nameKey); });
-        const missing = [...known].filter(k=>!audited.has(k));
-        return kpi('Associates', audited.size, '',
-          missing.length ? `audited · ${missing.length} not audited` : 'audited in this range');
-      })()}
-      ${kpi('Audits', st.audits, '', `${billers} biller${billers!==1?'s':''} · ${esc(rangeLabel())}`)}
-      ${kpi('Avg QA Score', fmtPct(st.score), scoreClass(st.score), `threshold ${OUTLIER_THRESHOLD}%`)}
-      ${kpi('Clean Audits', st.clean, 'good', `${pct(st.clean, st.audits)}% error-free`)}
-      ${kpi('Outliers', outs.length, outs.length?'bad':'good', `${OUTLIER_CONSEC_WEEKS}+ wks under ${OUTLIER_THRESHOLD}%`)}
-    </div>
-    <div class="kpi-grid">
-      ${kpi('Fatal Errors', st.fatal, st.fatal?'bad':'good', st.errors?`${fmtPct(pct(st.fatal,st.errors))} of errors`:'none found')}
-      ${kpi('Major Errors', st.major, st.major?'warn':'good', st.errors?`${fmtPct(pct(st.major,st.errors))} of errors`:'none found')}
-      ${kpi('Non-Fatal Errors', st.nonfatal, st.nonfatal?'acc':'good', st.errors?`${fmtPct(pct(st.nonfatal,st.errors))} of errors`:'none found')}
-      ${(()=>{
-        // Defects are the errors themselves; defectives are the claims carrying
-        // them. One claim can hold several defects, so the two never match and
-        // reading only the first cannot separate "many bad claims" from
-        // "a few very bad ones".
-        const defectives = rows.filter(r=>r.errors.length).length;
-        const per = defectives ? (st.errors/defectives).toFixed(2) : '0';
-        return kpi('Defect Count', st.errors, '',
-                 `${per} defect(s) per defective claim`) +
-               kpi('Defective Count', defectives, defectives?'bad':'good',
-                 `of ${st.audits} audited · ${fmtPct(pct(defectives, st.audits||1))} of claims`);
-      })()}
-      ${kpi('Score Lost to Errors', fmtPct(100-st.score), (100-st.score)>(100-OUTLIER_THRESHOLD)?'bad':'warn',
-        `avg score lost per audit (${LOB==='pp'?'any error':'a fatal error'} scores 0) · ${fmtPct(st.score)} retained`)}
-    </div>
-
+  // AR and Payment Posting are separate processes and keep separate section
+  // orders. Payment Posting reads: where, trend, who, outliers, why (Pareto & RCA),
+  // what to do, follow-through, supporting detail, then data checks and settings.
+  const arSections = ()=>`
     <div class="section-title">Thresholds &amp; Targets</div>
     ${settingsCardHTML()}
 
@@ -11987,6 +11964,86 @@ function dashboardHTML(){
     ${feedbackEffectHTML(rows)}
 
     ${splitByClientHTML()}
+  `;
+  const postingSections = ()=>`
+    ${sheetCheckWarning(rows)}
+    ${samplingScopeNote()}
+    <div class="section-title">Quality by Project &amp; Practice</div>
+    ${scoreCardsHTML(rows)}
+    ${projectPracticeTableHTML(rows)}
+
+    <div class="section-title">Quality by Week</div>
+    ${breakdownTable('Weekly Summary', `Weeks inside ${rangeLabel()}`, weekRows, 'Week')}
+
+    ${rosterMismatchBanner()}
+    <div class="section-title">Quality by Biller</div>
+    ${billerTableHTML()}
+
+    <div class="section-title">Quality Outlier Watchlist</div>
+    ${watchlistHTML()}
+
+    ${splitByClientHTML()}
+
+    <div class="section-title">Recommended Actions</div>
+    ${recommendedActionsHTML(rows)}
+
+    <div class="section-title">Feedback &amp; Recurrence</div>
+    ${feedbackEffectHTML(rows)}
+
+    <div class="section-title">Rework &amp; Correction</div>
+    ${reworkAgentHTML(rows)}
+
+    ${SAMPLING_IN_AGENT ? `<div class="section-title">Sampling Coverage by Associate</div>
+    ${samplingComplianceHTML(rows)}` : ''}
+
+    <div class="section-title">Quality by Payer</div>
+    ${payerHTML(rows)}
+
+    <div class="section-title">Sheet Checks</div>
+    ${sheetChecksHTML(rows)}
+
+    <div class="section-title">Thresholds &amp; Targets</div>
+    ${settingsCardHTML()}
+  `;
+  return `
+    ${banner}
+    <div class="kpi-grid">
+      ${(()=>{
+        // counted from the data, not the roster, so it follows the filters
+        const audited = new Set(rows.map(r=>r.nameKey).filter(Boolean));
+        const known = new Set();
+        (ROSTER||[]).forEach(r=>{ if(r.nameKey) known.add(r.nameKey); });
+        scopeProd().forEach(p2=>{ if(p2.nameKey) known.add(p2.nameKey); });
+        const missing = [...known].filter(k=>!audited.has(k));
+        return kpi('Associates', audited.size, '',
+          missing.length ? `audited · ${missing.length} not audited` : 'audited in this range');
+      })()}
+      ${kpi('Audits', st.audits, '', `${billers} biller${billers!==1?'s':''} · ${esc(rangeLabel())}`)}
+      ${kpi('Avg QA Score', fmtPct(st.score), scoreClass(st.score), `threshold ${OUTLIER_THRESHOLD}%`)}
+      ${kpi('Clean Audits', st.clean, 'good', `${pct(st.clean, st.audits)}% error-free`)}
+      ${kpi('Outliers', outs.length, outs.length?'bad':'good', `${OUTLIER_CONSEC_WEEKS}+ wks under ${OUTLIER_THRESHOLD}%`)}
+    </div>
+    <div class="kpi-grid">
+      ${kpi('Fatal Errors', st.fatal, st.fatal?'bad':'good', st.errors?`${fmtPct(pct(st.fatal,st.errors))} of errors`:'none found')}
+      ${kpi('Major Errors', st.major, st.major?'warn':'good', st.errors?`${fmtPct(pct(st.major,st.errors))} of errors`:'none found')}
+      ${kpi('Non-Fatal Errors', st.nonfatal, st.nonfatal?'acc':'good', st.errors?`${fmtPct(pct(st.nonfatal,st.errors))} of errors`:'none found')}
+      ${(()=>{
+        // Defects are the errors themselves; defectives are the claims carrying
+        // them. One claim can hold several defects, so the two never match and
+        // reading only the first cannot separate "many bad claims" from
+        // "a few very bad ones".
+        const defectives = rows.filter(r=>r.errors.length).length;
+        const per = defectives ? (st.errors/defectives).toFixed(2) : '0';
+        return kpi('Defect Count', st.errors, '',
+                 `${per} defect(s) per defective claim`) +
+               kpi('Defective Count', defectives, defectives?'bad':'good',
+                 `of ${st.audits} audited · ${fmtPct(pct(defectives, st.audits||1))} of claims`);
+      })()}
+      ${kpi('Score Lost to Errors', fmtPct(100-st.score), (100-st.score)>(100-OUTLIER_THRESHOLD)?'bad':'warn',
+        `avg score lost per audit (${LOB==='pp'?'any error':'a fatal error'} scores 0) · ${fmtPct(st.score)} retained`)}
+    </div>
+
+    ${LOB==='pp' ? postingSections() : arSections()}
   `;
 }
 
