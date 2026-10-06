@@ -1298,8 +1298,9 @@ function rebuttalFields(r){
    and one Yes / No column per error category with no severity or weight. Its
    Final Score % is 0 when any category is Yes and 100% otherwise, so every
    category is treated as fatal here — the AR scoring rule (a fatal error scores
-   0) then gives the same score. Payment Type (ERA, paper EOB, ...) has no AR
-   equivalent and stands in for Practice, the level under the client. Rows are translated into AR column names and go
+   0) then gives the same score. Project Name and Client Name map to AR's
+   Project and Practice; older trackers had a single Process Name instead, and
+   there Payment Type (ERA, paper EOB, ...) is the level under it. Rows are translated into AR column names and go
    through parseAudit, so every report section works the same for both.
    Patient Name and Check Number are never read. */
 function postingWorkbook(wb, find){
@@ -1350,8 +1351,8 @@ function postingWorkbook(wb, find){
     const o = {
       'Sr. No': pick(r,['Sl No','S.No','Sr. No']),
       'Associate Name': user, 'Emp. ID': emp,
-      'Project': pick(r,['Process Name','Project']),
-      'Practice': typeOf(pick(r,['Payment Type'])),
+      'Project': pick(r,['Project Name','Process Name','Project']),
+      'Practice': String(pick(r,['Client Name'])??'').trim() || typeOf(pick(r,['Payment Type'])),
       'Payer': payerOf(pick(r,['Insurance Name','Payer'])),
       'Team Lead': pick(r,['Supervisior','Supervisor']),
       'Auditor Name': pick(r,['Auditor']),
