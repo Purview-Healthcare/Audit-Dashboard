@@ -1333,7 +1333,7 @@ function postingWorkbook(wb, find){
   const typeOf = v=>{ const t=String(v??'').trim(); if(!t) return ''; const k=t.toLowerCase().replace(/[^a-z0-9]/g,'');
     if(!typeSpelling.has(k)) typeSpelling.set(k,t); return typeSpelling.get(k); };
   const decision = v=>{ const t=String(v??'').trim();
-    if(!t) return '';
+    if(!t || /^(not|no)\s*required$/i.test(t)) return '';
     if(/(not|un)\s*(accept|valid|agree)|reject|disagree|uphe|invalid|declin|denied/i.test(t)) return 'Upheld';
     if(/accept|agree|overturn|valid|approv|revers/i.test(t)) return 'Overturned';
     return t; };
@@ -1346,8 +1346,22 @@ function postingWorkbook(wb, find){
     let user = String(pick(r,['User Name','Associate Name'])??'').trim();
     if(!user || /^not found$/i.test(user)) user = emp;   // keep the audit, named by Emp ID
     if(!user) continue;
-    const by = String(pick(r,['Rebuttal Raised By'])??'').trim();
-    const dec = pick(r,['QA Decision']);
+    // a rebuttal is raised only when who / when / why is filled; QA Decision is
+    // filled on every row (Not Required when there is nothing to decide)
+    const raised = ['Rebuttal Raised By','Rebuttal Raised Date','Rebuttal Reason']
+      .some(n=>String(pick(r,[n])??'').trim());
+    const dec = decision(pick(r,['QA Decision']));
+    // Rework: Done / Pending / Not Required, read from whichever rework column
+    // carries it (the status has been entered under Rework Date)
+    const rwRaw = [pick(r,['Rework Status']), pick(r,['Rework Date'])]
+      .map(v=>String(v??'').trim()).find(v=>/^(done|pending|not\s*required|no\s*required|n\/?a)$/i.test(v)) || '';
+    const rwNeeded = !rwRaw ? '' : /^(done|pending)$/i.test(rwRaw) ? 'Yes' : 'Not Required';
+    const rwDone   = !rwRaw ? '' : /^done$/i.test(rwRaw) ? 'Yes' : /^pending$/i.test(rwRaw) ? 'No' : 'Not Required';
+    // Feedback Shared: Shared / Not Shared / No Required (older sheets: Yes / No)
+    const fbRaw = String(pick(r,['Feedback Shared'])??'').trim();
+    const fb = /^(not|no)\s*shared$/i.test(fbRaw) || /^no$/i.test(fbRaw) ? 'No'
+             : /^(no|not)\s*required$/i.test(fbRaw) ? 'Not Required'
+             : /^(shared|yes)$/i.test(fbRaw) ? 'Yes' : fbRaw;
     const o = {
       'Sr. No': pick(r,['Sl No','S.No','Sr. No']),
       'Associate Name': user, 'Emp. ID': emp,
@@ -1360,10 +1374,11 @@ function postingWorkbook(wb, find){
       'Week': weekOfWork(pick(r,['DOW'])),
       'QA Status': pick(r,['Audit Status']),
       'Findings': pick(r,['Remarks']),
-      'Feedback Status': pick(r,['Feedback Shared']), 'Feedback Date': pick(r,['Feedback Date']),
-      'Rebuttal': (by || String(dec??'').trim()) ? 'Yes' : '',
-      'Rebuttal Outcome': decision(dec),
+      'Feedback Status': fb, 'Feedback Date': pick(r,['Feedback Date']),
+      'Rebuttal Status': raised ? 'Yes' : 'No',
+      'Re-Audit Verdict - QA': dec==='Overturned' ? 'Agree' : dec==='Upheld' ? 'Disagree' : '',
       'Rebuttal Comment': pick(r,['Rebuttal Reason']),
+      'Rework Needed - QA': rwNeeded, 'Rework Complete - QA': rwDone,
       'Final Audit Score %': pick(r,['Final Score %','Final Score']),
       'Defects / Error Count': pick(r,['Error Count'])
     };
@@ -1920,6 +1935,14 @@ async function handleQA(file){
         const pp = postingWorkbook(res.wb, find);
         auditRows = pp.rows; paramRows = pp.paramRows;
         QA_ROSTER = pp.roster; await sset(K.qaroster, QA_ROSTER);
+        // Payment Posting: associate status and supervisor come from the sheet's
+        // Validation Sheet, unless a separate Team Roster has been uploaded
+        if(!ROSTER_UPLOADED && pp.roster.length){
+          ROSTER = pp.roster; await sset(K.roster, ROSTER);
+          setRosterCount();
+          const sub=document.getElementById('rosterSub');
+          if(sub) sub.textContent = `${ROSTER.length} people · from the QA sheet\u2019s Validation Sheet`;
+        }
       } else {
       const aName = find('audit data') || find('audit') || names[0];
       auditRows = sheetToRows(res.wb, aName);
@@ -11722,6 +11745,26 @@ function sheetCheckWarning(rows){
     Scores on those rows may be wrong until the sheet is fixed.
     <a href="#" onclick="const t=[...document.querySelectorAll('.section-title')].find(x=>/^Sheet Checks/.test(x.textContent.trim()));if(t)t.scrollIntoView({behavior:'smooth'});return false;">See Sheet Checks</a></div></div>`;
 }
+// Payment Posting names its columns differently; checks are worded in its terms
+function checkWords(t){
+  if(LOB!=='pp') return t;
+  return String(t)
+    .replace(/Re-Audit Verdict - QA/g,'QA Decision')
+    .replace(/unless Rebuttal Status is "Yes"\. Clear it, or set Rebuttal Status\./g,'unless a rebuttal is raised. Set it to Not Required, or fill Rebuttal Raised By.')
+    .replace(/Rebuttal Status is "Yes"/g,'a rebuttal is raised')
+    .replace(/Rework Needed is "Yes"/g,'Rework is Pending or Done')
+    .replace(/QA Status/g,'Audit Status')
+    .replace(/Findings is/g,'Remarks is')
+    .replace(/the Error Parameters tab/g,'the Error Category tab')
+    .replace(/Error Parameters or rename/g,'the Error Category tab or rename')
+    .replace(/Final Audit Score % or Total Deduction disagrees with the parameters/g,'Final Score % disagrees with the error categories')
+    .replace(/marked parameters and their weights/g,'marked error categories')
+    .replace(/parameter columns/g,'error category columns')
+    .replace(/no parameter is marked Yes/g,'no error category is marked Yes')
+    .replace(/Parameters are marked Yes/g,'Error categories are marked Yes')
+    .replace(/mark the parameter/gi,'mark the error category')
+    .replace(/Mark the parameter/g,'Mark the error category');
+}
 function sheetChecksHTML(rows){
   if(!rows.length) return '';
   const results = SHEET_CHECKS.map(c=>({c, hits: rows.filter(r=>{ try{ return c.test(r); }catch(e){ return false; } })}));
@@ -11740,19 +11783,19 @@ function sheetChecksHTML(rows){
     <div class="fb-tiles">
       ${tile(rows.length,'audit rows checked','')}
       ${tile(needFix.size,'rows to fix in the sheet', needFix.size?'bad':'good')}
-      ${tile(scored100,'scored 100% while QA Status says Error', scored100?'bad':'good')}
+      ${tile(scored100,checkWords('scored 100% while QA Status says Error'), scored100?'bad':'good')}
       ${tile(notes.size,'rows with a note only', notes.size?'warn':'good')}
     </div>
     ${failing.length ? `<div class="table-scroll"><table class="data">
       <thead><tr><th>Check</th><th class="num">Rows</th><th>Rows to fix</th></tr></thead>
       <tbody>${failing.map(({c,hits})=>`<tr class="${c.tone==='bad'?'is-outlier':''}">
-        <td style="min-width:300px;"><b>${esc(c.label)}</b>
-          <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px;">${esc(c.why)}</div></td>
+        <td style="min-width:300px;"><b>${esc(checkWords(c.label))}</b>
+          <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px;">${esc(checkWords(c.why))}</div></td>
         <td class="num"><span class="tag ${toneTag(c.tone)}">${hits.length}</span></td>
         <td style="font-size:12px;">${hits.slice(0,8).map(ref).join('<br>')}${hits.length>8?`<br><span style="color:var(--text-faint);">+ ${hits.length-8} more</span>`:''}</td>
       </tr>`).join('')}</tbody>
     </table></div>` : ''}
-    ${passed.length ? `<div style="font-size:12px;color:var(--text-dim);margin-top:10px;"><b>Passed:</b> ${passed.map(x=>esc(x.c.label)).join(' · ')}</div>` : ''}
+    ${passed.length ? `<div style="font-size:12px;color:var(--text-dim);margin-top:10px;"><b>Passed:</b> ${passed.map(x=>esc(checkWords(x.c.label))).join(' · ')}</div>` : ''}
   </div>`;
 }
 function paramsInUseHTML(rows){
