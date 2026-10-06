@@ -109,6 +109,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     font-weight:600;color:var(--text-dim);}
   .cat-btn:hover{color:var(--navy);}
   .cat-btn.active{background:var(--panel);color:var(--navy);box-shadow:var(--shadow);}
+  .lob-switch{display:inline-flex;align-items:center;background:var(--panel-2);border:1px solid var(--border);
+    border-radius:8px;padding:3px;gap:3px;margin-right:10px;}
+  .lob-label{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:0 8px 0 6px;}
+  .lob-btn{all:unset;cursor:pointer;padding:7px 15px;border-radius:6px;font-size:12.5px;font-weight:700;color:var(--text-dim);}
+  .lob-btn:hover{color:var(--navy);}
+  .lob-btn.active{background:var(--accent);color:var(--panel);box-shadow:var(--shadow);}
+  .lob-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+  @media print{.lob-switch{display:none!important;}}
   .range-hint{font-size:11.5px;color:var(--note-2);font-style:italic;}
   .range-hint b{color:var(--navy);font-style:normal;}
 
@@ -792,6 +800,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
     <div class="topbar">
       <div class="topbar-actions">
+        <div class="lob-switch" id="lobSwitch" role="group" aria-label="Line of business">
+          <span class="lob-label">Line of business</span>
+          <button type="button" class="lob-btn" data-lob="ar">AR</button>
+          <button type="button" class="lob-btn" data-lob="pp">Payment Posting</button>
+        </div>
         <div class="cat-switch" id="catSwitch">
         <button class="cat-btn" data-cat="prod">Production</button>
         <button class="cat-btn active" data-cat="agent">Agent Quality</button>
@@ -893,6 +906,23 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 <div class="toast" id="toast"></div>
 
 <script>
+/* ======================= LINE OF BUSINESS =======================
+   AR and Payment Posting are audited the same way but kept apart: each has
+   its own production and QA uploads and its own saved data (a separate
+   storage prefix). The switch at the top reloads the page into the other
+   one; ?lob=pp opens Payment Posting directly. AR keeps the original prefix,
+   so everything saved before this existed stays where it was. */
+var LOB = (function(){
+  var v = 'ar';
+  try{
+    var q = new URLSearchParams(location.search).get('lob');
+    v = q || localStorage.getItem('qa_lob') || 'ar';
+  }catch(e){}
+  return String(v).toLowerCase()==='pp' ? 'pp' : 'ar';
+})();
+var LOB_NAME = LOB==='pp' ? 'Payment Posting' : 'AR';
+try{ localStorage.setItem('qa_lob', LOB); }catch(e){}
+
 /* ============================ STATE ============================ */
 let QA = [];            // audit rows
 let PROD = [];          // production rows {name, dateKey, count, project}
@@ -915,7 +945,7 @@ let OUTLIER_THRESHOLD    = 95;   // QA score % an associate must hold
 let OUTLIER_CONSEC_WEEKS = 2;    // consecutive weeks below it before it counts
 let PARETO_CUT           = 80;   // % of errors that defines the vital few
 
-const PILLARS = ['Actions','Analysis','Call_Analysis','Compliance','Integrity_Issue',
+const PILLARS = LOB==='pp' ? [] : ['Actions','Analysis','Call_Analysis','Compliance','Integrity_Issue',
                  'Notes_Documentation','Process_Specific','SAAG'];
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -931,7 +961,7 @@ var SAMPLING_IN_AGENT = true;
 let REBUTTALS = {};
 // a short note against anyone who went unaudited, so the gap can be explained
 let UNAUDITED_NOTES = {};
-var K_PREFIX='qa_';
+var K_PREFIX = LOB==='pp' ? 'qapp_' : 'qa_';
 var K = { ui:K_PREFIX+'pqd_ui', qa:K_PREFIX+'pqd_qa', prod:K_PREFIX+'pqd_prod', proddet:K_PREFIX+'pqd_proddet', rca:K_PREFIX+'pqd_rca', params:K_PREFIX+'pqd_params', roster:K_PREFIX+'pqd_roster', up:K_PREFIX+'pqd_uploads', proddet:K_PREFIX+'pqd_proddet', sharedSeen:K_PREFIX+'pqd_sharedseen', sharedUrl:K_PREFIX+'pqd_sharedurl', rosterup:K_PREFIX+'pqd_rosterup', rampup:K_PREFIX+'pqd_rampup', rosteredits:K_PREFIX+'pqd_rosteredits', thresholds:K_PREFIX+'pqd_thresholds', cmpnotes:K_PREFIX+'pqd_cmpnotes', printskip:K_PREFIX+'pqd_printskip', presets:K_PREFIX+'pqd_presets', base:K_PREFIX+'pqd_base', prodhdr:K_PREFIX+'pqd_prodhdr', rebuttals:K_PREFIX+'pqd_rebuttals', uanotes:K_PREFIX+'pqd_uanotes', prodroster:K_PREFIX+'pqd_prodroster', qaroster:K_PREFIX+'pqd_qaroster', rebut:K_PREFIX+'pqd_rebut', targets:K_PREFIX+'pqd_targets' };
 
 /* ============================ HELPERS ============================ */
@@ -1258,6 +1288,93 @@ function rebuttalFields(r){
     reAuditVerdict: String(pick(r,['Re-Audit Verdict','Reaudit Verdict','Supervisor Verdict',
       'Agreement','Re-Audit Result'])??'').trim()
   };
+}
+
+
+/* ---- Payment Posting QA sheet -> the same rows an AR sheet produces ----
+   The Payment Posting tracker lays out an audit differently: a Total Data tab,
+   the associate as User Name (looked up from Emp ID), DOW / DOA for the work
+   and audit dates, Process Name for the client, Insurance Name for the payer,
+   and one Yes / No column per error category with no severity or weight. Its
+   Final Score % is 0 when any category is Yes and 100% otherwise, so every
+   category is treated as fatal here — the AR scoring rule (a fatal error scores
+   0) then gives the same score. Payment Type (ERA, paper EOB, ...) has no AR
+   equivalent and stands in for Practice, the level under the client. Rows are translated into AR column names and go
+   through parseAudit, so every report section works the same for both.
+   Patient Name and Check Number are never read. */
+function postingWorkbook(wb, find){
+  const dName = find('total data') || wb.SheetNames[0];
+  const raw = sheetToRows(wb, dName, 0);
+  // categories and descriptions come from their own tab; without it, the
+  // columns between Remarks and Final Score % are the categories
+  const cName = find('error categ') || find('categor');
+  let cats = [];
+  if(cName){
+    cats = sheetToRows(wb, cName, 0).map(r=>({
+      cat: String(pick(r,['Error Category','Category'])??'').trim(),
+      desc: String(pick(r,['Error Description','Description'])??'').trim()
+    })).filter(c=>c.cat);
+  }
+  if(!cats.length){
+    const hdr = (raw.__header || Object.keys(raw[0]||{})).map(h=>String(h||'').trim());
+    const a = hdr.findIndex(h=>/^remarks$/i.test(h)), b = hdr.findIndex(h=>/^final score/i.test(h));
+    if(a>=0 && b>a) cats = hdr.slice(a+1,b).filter(Boolean).map(c=>({cat:c, desc:''}));
+  }
+  const paramRows = cats.map(c=>({'Error Type':c.cat, 'Error Category':c.cat+' (F)',
+    'Error Description':c.desc, 'Error Criticality':'Fatal Error', 'Weightage':0}));
+
+  // one spelling per payer ("Eyemed" and "EyeMed" are the same insurer)
+  const payerSpelling = new Map();
+  const payerOf = v=>{ const t=String(v??'').trim(); if(!t) return ''; const k=t.toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(!payerSpelling.has(k)) payerSpelling.set(k,t); return payerSpelling.get(k); };
+  // one spelling per payment type ("TriZetto/ERA" and "Trizetto/ERA")
+  const typeSpelling = new Map();
+  const typeOf = v=>{ const t=String(v??'').trim(); if(!t) return ''; const k=t.toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(!typeSpelling.has(k)) typeSpelling.set(k,t); return typeSpelling.get(k); };
+  const decision = v=>{ const t=String(v??'').trim();
+    if(!t) return '';
+    if(/(not|un)\s*(accept|valid|agree)|reject|disagree|uphe|invalid|declin|denied/i.test(t)) return 'Upheld';
+    if(/accept|agree|overturn|valid|approv|revers/i.test(t)) return 'Overturned';
+    return t; };
+  const weekOfWork = v=>{ const d=normDate(v); if(!d) return '';
+    const x=new Date(d.key+'T00:00:00'); x.setDate(x.getDate()-((x.getDay()+6)%7)); return weekEndLabel(x); };
+
+  const rows = [];
+  for(const r of raw){
+    const emp = String(pick(r,['Emp ID','Emp. ID'])??'').trim();
+    let user = String(pick(r,['User Name','Associate Name'])??'').trim();
+    if(!user || /^not found$/i.test(user)) user = emp;   // keep the audit, named by Emp ID
+    if(!user) continue;
+    const by = String(pick(r,['Rebuttal Raised By'])??'').trim();
+    const dec = pick(r,['QA Decision']);
+    const o = {
+      'Sr. No': pick(r,['Sl No','S.No','Sr. No']),
+      'Associate Name': user, 'Emp. ID': emp,
+      'Project': pick(r,['Process Name','Project']),
+      'Practice': typeOf(pick(r,['Payment Type'])),
+      'Payer': payerOf(pick(r,['Insurance Name','Payer'])),
+      'Team Lead': pick(r,['Supervisior','Supervisor']),
+      'Auditor Name': pick(r,['Auditor']),
+      'Date Worked': pick(r,['DOW']), 'Audit Date': pick(r,['DOA']),
+      'Week': weekOfWork(pick(r,['DOW'])),
+      'QA Status': pick(r,['Audit Status']),
+      'Findings': pick(r,['Remarks']),
+      'Feedback Status': pick(r,['Feedback Shared']), 'Feedback Date': pick(r,['Feedback Date']),
+      'Rebuttal': (by || String(dec??'').trim()) ? 'Yes' : '',
+      'Rebuttal Outcome': decision(dec),
+      'Rebuttal Comment': pick(r,['Rebuttal Reason']),
+      'Final Audit Score %': pick(r,['Final Score %','Final Score']),
+      'Defects / Error Count': pick(r,['Error Count'])
+    };
+    for(const c of cats) o[c.cat+' (F)'] = pick(r,[c.cat]);
+    rows.push(o);
+  }
+  // the tracker's Validation Sheet, in the shape the roster comparison reads
+  const vName = find('validation');
+  const roster = vName ? parseRoster(sheetToRows(wb, vName, 0).map(v=>({
+    'Name': pick(v,['User Name','Name']), 'Status': pick(v,['Status']),
+    'Supervisor': pick(v,['Supervisior','Supervisor']), 'ECN': pick(v,['Emp ID','ECN'])}))) : [];
+  return {rows, paramRows, roster};
 }
 
 /* ---- Audit Data -> QA records ---- */
@@ -1792,6 +1909,17 @@ async function handleQA(file){
     if(res.type==='xlsx'){
       const names = res.wb.SheetNames;
       const find = frag => names.find(n=>n.trim().toLowerCase().includes(frag));
+      // AR sheets carry an Audit Data tab, Payment Posting sheets a Total Data tab
+      const isPosting = !!find('total data') && !find('audit data');
+      if(LOB==='pp' && !isPosting && find('audit data')){
+        toast('That looks like an AR QA sheet (it has an Audit Data tab). Switch to AR at the top to load it.', true); return; }
+      if(LOB==='ar' && isPosting){
+        toast('That looks like a Payment Posting QA sheet (it has a Total Data tab). Switch to Payment Posting at the top to load it.', true); return; }
+      if(isPosting){
+        const pp = postingWorkbook(res.wb, find);
+        auditRows = pp.rows; paramRows = pp.paramRows;
+        QA_ROSTER = pp.roster; await sset(K.qaroster, QA_ROSTER);
+      } else {
       const aName = find('audit data') || find('audit') || names[0];
       auditRows = sheetToRows(res.wb, aName);
       const pName = find('error parameter'); if(pName) paramRows = sheetToRows(res.wb, pName, 0);
@@ -1799,6 +1927,7 @@ async function handleQA(file){
       const vName = find('validation');
       QA_ROSTER = vName ? parseRoster(sheetToRows(res.wb, vName, 0)) : [];
       await sset(K.qaroster, QA_ROSTER);
+      }
     } else { auditRows = res.rows; }
 
     if(paramRows.length){ PARAMS = parseParams(paramRows); await sset(K.params, PARAMS); }
@@ -1888,7 +2017,7 @@ async function handleProd(file){
    anywhere — the file sits on your own shared drive or intranet.
    ==================================================== */
 let SHARED_DATA_URL = '';            // set in-app (Data > Shared data source) or here
-const SHARED_FILE     = 'shared-data.json';
+const SHARED_FILE     = LOB==='pp' ? 'shared-data-pp.json' : 'shared-data.json';
 let   SHARED_INFO     = null;
 
 // A Windows path typed by a supervisor is turned into something fetchable.
@@ -1925,7 +2054,7 @@ async function fetchShared(){
       const res = await fetch(url + (url.includes('?')?'&':'?') + 'v=' + Date.now(), {cache:'no-store'});
       if(!res.ok) continue;
       const d = await res.json();
-      if(d && d._format==='purview-quality-dashboard') return {url, data:d};
+      if(d && d._format==='purview-quality-dashboard' && (d.lob||'ar')===LOB) return {url, data:d};
     }catch(e){ /* blocked or missing — try the next candidate */ }
   }
   return null;
@@ -2013,7 +2142,7 @@ document.addEventListener('click', async e=>{
 
 function pqdSnapshot(){
   return {
-    _format:'purview-quality-dashboard', _version:1,
+    _format:'purview-quality-dashboard', _version:1, lob:LOB,
     savedAt:new Date().toISOString(),
     qa:QA, prod:PROD, params:PARAMS, roster:ROSTER, rca:RCA, uploads:UPLOADS
   };
@@ -2024,7 +2153,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
-    a.download=`sashas-third-eye-data-${new Date().toISOString().slice(0,10)}.json`;
+    a.download=`audit-dashboard-${LOB==='pp'?'payment-posting':'ar'}-data-${new Date().toISOString().slice(0,10)}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
     toast(`Exported ${QA.length} audit row(s), ${PROD.length} production row(s) and ${Object.keys(RCA).length} RCA entr${Object.keys(RCA).length===1?'y':'ies'}.`);
@@ -2038,7 +2167,8 @@ document.getElementById('importInput').addEventListener('change', e=>{
   fr.onload = async ev=>{
     try{
       const d=JSON.parse(ev.target.result);
-      if(d._format!=='purview-quality-dashboard'){ toast('That is not a Audit Dashboard data file.', true); return; }
+      if(d._format!=='purview-quality-dashboard'){ toast('That is not an Audit Dashboard data file.', true); return; }
+      if((d.lob||'ar')!==LOB){ toast(`That file holds ${(d.lob||'ar')==='pp'?'Payment Posting':'AR'} data — switch to ${(d.lob||'ar')==='pp'?'Payment Posting':'AR'} at the top to import it.`, true); return; }
       QA=d.qa||[]; PROD=d.prod||[]; PARAMS=d.params||[]; ROSTER=d.roster||[];
       RCA=d.rca||{}; UPLOADS=d.uploads||[];
       await sset(K.qa,QA); await sset(K.prod,PROD); await sset(K.params,PARAMS);
@@ -2465,6 +2595,9 @@ function reportBodyHTML(){
 
 // The printed report must name itself. One source of truth for all four views.
 function reportName(){
+  return LOB_NAME + ' ' + reportBaseName();
+}
+function reportBaseName(){
   switch(CATEGORY){
     case 'qa':       return 'QA Performance Report';
     case 'prod':     return 'Production Report';
@@ -9654,6 +9787,7 @@ async function handleBaseQA(file){
       try{
         const d=JSON.parse(ev.target.result);
         if(d._format!=='purview-quality-dashboard'){ toast('That is not an exported data file.', true); return; }
+        if((d.lob||'ar')!==LOB){ toast(`That file holds ${(d.lob||'ar')==='pp'?'Payment Posting':'AR'} data, not ${LOB_NAME}.`, true); return; }
         BASE = BASE || {qa:[], prod:[]};
         BASE.qa = d.qa||[]; BASE.prod = d.prod||BASE.prod||[]; BASE.label=(d.savedAt||'').slice(0,10);
         await sset(K.base, BASE); setBaseCount(); render();
@@ -11616,7 +11750,9 @@ function paramsInUseHTML(rows){
   rows.forEach(r=>r.errors.forEach(e=>{ const k=key(e.cat); marked.set(k,(marked.get(k)||0)+1); }));
   const total = +PARAMS.reduce((s,p)=>s+(p.weight||0),0).toFixed(4);
   const by = b=>PARAMS.filter(p=>critBucket(p.crit)===b);
-  const wOk = Math.abs(total-1)<0.0005;
+  // Payment Posting sheets carry no weights: any error scores the audit 0
+  const unweighted = PARAMS.every(p=>!p.weight);
+  const wOk = unweighted || Math.abs(total-1)<0.0005;
   const critLabel = p=>{ const b=critBucket(p.crit); return b==='fatal'?'<span class="tag fatal">Fatal</span>':b==='major'?'<span class="tag major">Major</span>':b==='nonfatal'?'<span class="tag nonfatal">Non-Fatal</span>':esc(p.crit||'—'); };
   const list = PARAMS.map(p=>{
     const bare = String(p.cat).replace(/\s*\((F|M|NF)\)\s*$/i,'');
@@ -11624,22 +11760,26 @@ function paramsInUseHTML(rows){
   });
   const tile=(n,l,tone)=>`<div class="fb-tile ${tone||''}"><div class="ft-n">${n}</div><div class="ft-l">${esc(l)}</div></div>`;
   return `<div class="card"><h3>Error Parameters in Use</h3>
-    <div class="card-sub">Read from the QA sheet’s Error Parameters tab · any Fatal error scores the audit 0; otherwise the weights of the marked parameters are deducted</div>
+    <div class="card-sub">${unweighted
+      ? `Read from the QA sheet’s error category tab · ${esc(LOB_NAME)} audits are pass or fail: any category marked Yes scores the audit 0`
+      : 'Read from the QA sheet’s Error Parameters tab · any Fatal error scores the audit 0; otherwise the weights of the marked parameters are deducted'}</div>
     <div class="fb-tiles">
       ${tile(PARAMS.length,'parameters','')}
-      ${tile(`${by('fatal').length} · ${by('major').length} · ${by('nonfatal').length}`,'fatal · major · non-fatal','')}
-      ${tile(fmtPct(total*100),'weights total', wOk?'good':'bad')}
+      ${unweighted ? tile('Pass / fail','any error scores 0','')
+        : tile(`${by('fatal').length} · ${by('major').length} · ${by('nonfatal').length}`,'fatal · major · non-fatal','')}
+      ${unweighted ? tile(fmtPct(avgScore(rows)),'audits error-free', '') : tile(fmtPct(total*100),'weights total', wOk?'good':'bad')}
       ${tile(list.filter(x=>x.n).length,'marked at least once in this range','')}
     </div>
     ${wOk?'':`<div class="banner bad" style="margin:8px 0;"><div><div class="b-title">Weights add up to ${fmtPct(total*100)}, not 100%</div>
       Scores still follow the sheet’s rule, but a clean-but-for-everything audit would not reach 0. Check the Weightage column.</div></div>`}
     <div class="table-scroll"><table class="data">
-      <thead><tr><th>Error Type</th><th>Error Category</th><th>Criticality</th><th class="num">Weight</th><th class="num">Marked</th><th>Description</th></tr></thead>
+      <thead><tr>${unweighted?'':'<th>Error Type</th>'}<th>Error Category</th>${unweighted?'':'<th>Criticality</th><th class="num">Weight</th>'}<th class="num">Marked</th><th>Description</th></tr></thead>
       <tbody>${list.map(({p,n})=>`<tr>
-        <td>${esc(p.type)}</td><td><b>${esc(p.cat)}</b></td><td>${critLabel(p)}</td>
-        <td class="num">${fmtPct((p.weight||0)*100)}</td><td class="num">${n||'<span style="color:var(--text-faint);">0</span>'}</td>
+        ${unweighted?'':`<td>${esc(p.type)}</td>`}<td><b>${esc(unweighted? String(p.cat).replace(/\s*\((F|M|NF)\)\s*$/i,'') : p.cat)}</b></td>
+        ${unweighted?'':`<td>${critLabel(p)}</td><td class="num">${fmtPct((p.weight||0)*100)}</td>`}
+        <td class="num">${n||'<span style="color:var(--text-faint);">0</span>'}</td>
         <td style="font-size:12px;color:var(--text-dim);">${esc(p.desc)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="3">TOTAL</td><td class="num">${fmtPct(total*100)}</td><td class="num">${[...marked.values()].reduce((a,b)=>a+b,0)}</td><td></td></tr></tfoot>
+      <tfoot><tr><td colspan="${unweighted?1:3}">TOTAL</td>${unweighted?'':`<td class="num">${fmtPct(total*100)}</td>`}<td class="num">${[...marked.values()].reduce((a,b)=>a+b,0)}</td><td></td></tr></tfoot>
     </table></div>
   </div>`;
 }
@@ -11826,8 +11966,8 @@ function dashboardHTML(){
     <div class="section-title">Rework &amp; Correction</div>
     ${reworkAgentHTML(rows)}
 
-    <div class="section-title">Claim Value &amp; Aging</div>
-    ${valueAgingHTML(rows)}
+    ${LOB==='pp' && !rows.some(r=>r.bucketAge || r.balance>0 || r.age>0) ? '' : `<div class="section-title">Claim Value &amp; Aging</div>
+    ${valueAgingHTML(rows)}`}
 
     <div class="section-title">Quality by Week</div>
     ${breakdownTable('Weekly Summary', `Weeks inside ${rangeLabel()}`, weekRows, 'Week')}
@@ -11847,7 +11987,26 @@ function dashboardHTML(){
 }
 
 /* ============================ INIT ============================ */
+function applyLob(){
+  document.title = 'Audit Dashboard · ' + LOB_NAME;
+  document.querySelectorAll('#lobSwitch .lob-btn').forEach(b=>{
+    const on = b.dataset.lob===LOB;
+    b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on));
+    b.addEventListener('click', ()=>{
+      if(b.dataset.lob===LOB) return;
+      try{ localStorage.setItem('qa_lob', b.dataset.lob); }catch(e){}
+      const u = new URL(location.href); u.searchParams.set('lob', b.dataset.lob); location.href = u.toString();
+    });
+  });
+  const title = (id, text)=>{ const t=document.querySelector(`#${id} .u-title`); if(t && t.firstChild) t.firstChild.textContent = text; };
+  title('qaZone',       `${LOB_NAME} QA Sheet`);
+  title('prodZone',     `${LOB_NAME} Production Sheet`);
+  title('baseQaZone',   `Previous ${LOB_NAME} QA Sheet `);
+  title('baseProdZone', `Previous ${LOB_NAME} Production `);
+  if(LOB==='pp'){ const sub=document.querySelector('#qaZone .u-sub'); if(sub) sub.textContent='Total Data tab — .xlsx'; }
+}
 (async function init(){
+  applyLob();
   await loadAll();
   runSelfCheck();
   if(Array.isArray(ALLOWED_REPORTS)){
@@ -12139,7 +12298,7 @@ function dashboardHTML(){
     const name=$("pvfbName").value.trim();
     try{ localStorage.setItem("pvfb-name",name); }catch(e){}
     const type=(KINDS.find(k=>k[0]===kind)||KINDS[0])[1];
-    const body=`App: ${APP}\nType: ${type}\nFrom: ${name||"-"}\nPage: ${where()||"-"}\n\n${message}`;
+    const body=`App: ${APP}${typeof LOB_NAME!=="undefined"?" ("+LOB_NAME+")":""}\nType: ${type}\nFrom: ${name||"-"}\nPage: ${where()||"-"}\n\n${message}`;
     location.href=`mailto:${TO.join(",")}?subject=${encodeURIComponent(APP+" feedback: "+type)}&body=${encodeURIComponent(body)}`;
     msg.value=""; $("pvfbForm").hidden=true; $("pvfbDone").hidden=false;
   };
