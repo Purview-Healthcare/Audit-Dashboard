@@ -3587,20 +3587,20 @@ function render(){
   }
   if(CATEGORY==='team'){
     c.innerHTML = teamStatusHTML();
-    addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
+    stripSeverity(c); addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
     c.classList.add('fade-in'); setTimeout(()=>c.classList.remove('fade-in'),260);
     return;
   }
   if(CATEGORY==='compare'){
     c.innerHTML = comparisonDashboardHTML();
-    addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
+    stripSeverity(c); addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
     c.classList.add('fade-in'); setTimeout(()=>c.classList.remove('fade-in'),260);
     return;
   }
   if(CATEGORY==='insights'){
     c.innerHTML = (QA.length||PROD.length) ? insightsDashboardHTML()
       : `<div class="empty"><h2>Nothing to combine yet</h2><p>Upload a QA Sheet and a Production Sheet.</p></div>`;
-    addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
+    stripSeverity(c); addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
     c.classList.add('fade-in'); setTimeout(()=>c.classList.remove('fade-in'),260);
     return;
   }
@@ -3610,14 +3610,14 @@ function render(){
         <p>Upload a Production Sheet — the report needs an associate name, a date and a claim count.</p></div>`;
     } else {
       c.innerHTML = prodDashboardHTML();
-      addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
+      stripSeverity(c); addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
     }
     c.classList.add('fade-in'); setTimeout(()=>c.classList.remove('fade-in'),260);
     return;
   }
   if(!QA.length){ c.innerHTML=emptyHTML(); return; }
   c.innerHTML = CATEGORY==='qa' ? qaDashboardHTML() : dashboardHTML();
-  addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
+  stripSeverity(c); addRowNumbers(c); makeSortable(c); addScopePickers(c); injectReportIndex(c); addTopLinks(c); addCopyButtons(c);
   c.classList.add('fade-in'); setTimeout(()=>c.classList.remove('fade-in'),260);
 }
 document.getElementById('catSwitch').addEventListener('click', e=>{
@@ -4245,7 +4245,8 @@ function errorTypeInsights(arr, total, rows){
     sev.set(e.pillar,s);
   }
   const fatals=[...sev.entries()].filter(([,s])=>s.fatal>0).sort((a,b)=>b[1].fatal-a[1].fatal);
-  if(fatals.length){
+  if(LOB==='pp'){ /* pass / fail audits: no severity to compare */ }
+  else if(fatals.length){
     const [fk,fs]=fatals[0];
     out.push(fk===top.key
       ? `<b>${esc(fk)}</b> also carries the most <b>fatal</b> errors (${fs.fatal}), so it is both the biggest and the most
@@ -4308,8 +4309,10 @@ function recommendedActionsHTML(rows){
   // 3. Fatal errors — highest weightage, immediate review
   people.filter(p=>p.fatal>0).sort((a,b)=>b.fatal-a.fatal).slice(0,5).forEach(p=>{
     acts.push({pri:3, who:p.name,
-      title: `${p.name} — review ${p.fatal} fatal error${p.fatal!==1?'s':''}`,
-      body: `A fatal error scores the whole audit 0, so each one costs the full audit. ` +
+      title: LOB==='pp' ? `${p.name} — review ${p.fatal} error${p.fatal!==1?'s':''}`
+                        : `${p.name} — review ${p.fatal} fatal error${p.fatal!==1?'s':''}`,
+      body: (LOB==='pp' ? `Any error scores the whole audit 0, so each one costs the full audit. `
+                        : `A fatal error scores the whole audit 0, so each one costs the full audit. `) +
             `Walk through each claim with them individually rather than in a group session.`});
   });
 
@@ -4479,7 +4482,7 @@ function clientFindingsHTML(proj, rows, allRows, prod){
     const who=[...byWho.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3);
     if(who.length) bul.push(`Most errors sit with <b>${who.map(([n2,c])=>esc(n2)+' ('+c+')').join(', ')}</b>${byWho.size>who.length?` — ${byWho.size-who.length} other(s) contributed the rest`:''}.`);
     const fatal = rows.reduce((s2,r)=>s2+r.fatal,0);
-    if(fatal) bul.push(`<b>${fatal} fatal error(s)</b> in this client — these carry the most weight on the score and usually mean money at risk, so they come before anything else.`);
+    if(fatal && LOB!=='pp') bul.push(`<b>${fatal} fatal error(s)</b> in this client — these carry the most weight on the score and usually mean money at risk, so they come before anything else.`);
   }
   // this client against the rest
   const others = allRows.filter(r=>(r.project||'(client not stated)')!==proj);
@@ -11938,15 +11941,15 @@ function dashboardHTML(){
                  `of ${st.audits} audited · ${fmtPct(pct(defectives, st.audits||1))} of claims`);
       })()}
       ${kpi('Score Lost to Errors', fmtPct(100-st.score), (100-st.score)>(100-OUTLIER_THRESHOLD)?'bad':'warn',
-        `avg score lost per audit (a fatal error scores 0) · ${fmtPct(st.score)} retained`)}
+        `avg score lost per audit (${LOB==='pp'?'any error':'a fatal error'} scores 0) · ${fmtPct(st.score)} retained`)}
     </div>
 
     <div class="section-title">Thresholds &amp; Targets</div>
     ${settingsCardHTML()}
 
-    <div class="section-title">Sheet Checks &amp; Error Parameters</div>
+    <div class="section-title">${LOB==='pp' ? 'Sheet Checks' : 'Sheet Checks &amp; Error Parameters'}</div>
     ${sheetChecksHTML(rows)}
-    ${paramsInUseHTML(rows)}
+    ${LOB==='pp' ? '' : paramsInUseHTML(rows)}
 
     ${samplingScopeNote()}
     <div class="section-title">Quality by Project &amp; Practice</div>
@@ -11985,6 +11988,31 @@ function dashboardHTML(){
 
     ${splitByClientHTML()}
   `;
+}
+
+/* Payment Posting audits are pass or fail: every error scores the audit 0 and
+   the sheet has no Fatal / Major / Non-Fatal split. Internally each category
+   counts as fatal (that is what gives the 0), so the severity tiles and the
+   Fatal / Major / Non-Fatal table columns are removed from the finished report
+   rather than showing every error as fatal. */
+function stripSeverity(root){
+  if(LOB!=='pp' || !root) return;
+  const SEV = /^(fatal|major|non\s*-?\s*fatal)(\s+errors?)?$/i;
+  root.querySelectorAll('.kpi').forEach(k=>{
+    const l = k.querySelector('.k-label'); if(l && SEV.test(l.textContent.trim())) k.remove();
+  });
+  root.querySelectorAll('table').forEach(t=>{
+    const head = t.tHead && t.tHead.rows[t.tHead.rows.length-1]; if(!head) return;
+    // logical column positions, so a colspan elsewhere in the row cannot shift them
+    const span = row=>{ const out=[]; let i=0; for(const c of row.cells){ out.push([i, c]); i+=c.colSpan||1; } return {cells:out, width:i}; };
+    const h = span(head);
+    const drop = new Set(h.cells.filter(([,c])=>SEV.test(c.textContent.replace(/[\u2191\u2193\u2195\u25B2\u25BC]/g,'').trim())).map(([i])=>i));
+    if(!drop.size) return;
+    for(const row of t.rows){
+      const r = span(row); if(r.width!==h.width) continue;
+      r.cells.forEach(([i,c])=>{ if(drop.has(i) && (c.colSpan||1)===1) c.remove(); });
+    }
+  });
 }
 
 /* ============================ INIT ============================ */
